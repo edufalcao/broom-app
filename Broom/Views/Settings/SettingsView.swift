@@ -26,7 +26,8 @@ struct SettingsView: View {
                         Label("About", systemImage: "info.circle")
                     }
             }
-            .frame(height: 390)
+            .padding(.top, 8)
+            .frame(height: 400)
 
             Divider()
 
