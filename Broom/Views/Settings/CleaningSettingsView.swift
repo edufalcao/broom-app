@@ -7,6 +7,8 @@ struct CleaningSettingsView: View {
     @AppStorage("scanDSStores") private var scanDSStores = true
     @AppStorage("minTempFileAgeHours") private var minTempFileAgeHours = 24
 
+    private let ageOptions = [1, 6, 12, 24, 48, 168]
+
     var body: some View {
         Form {
             Picker("Default delete method:", selection: $moveToTrash) {
@@ -16,7 +18,11 @@ struct CleaningSettingsView: View {
 
             Toggle("Skip caches for currently running apps", isOn: $skipRunningApps)
 
-            Stepper("Minimum temp file age: \(minTempFileAgeHours)h", value: $minTempFileAgeHours, in: 1...168, step: 6)
+            Picker("Minimum temp file age:", selection: $minTempFileAgeHours) {
+                ForEach(ageOptions, id: \.self) { hours in
+                    Text(hours < 24 ? "\(hours)h" : "\(hours / 24)d").tag(hours)
+                }
+            }
 
             Toggle("Show developer caches (Xcode, npm, pip, etc.)", isOn: $showDeveloperCaches)
 
