@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct AboutSettingsView: View {
@@ -7,9 +8,9 @@ struct AboutSettingsView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "leaf.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.green)
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 64, height: 64)
 
             Text("Broom")
                 .font(.title.bold())
