@@ -5,6 +5,7 @@ struct MainWindow: View {
     @State private var scanViewModel = ScanViewModel()
     @State private var uninstallerViewModel = UninstallerViewModel()
     @State private var largeFilesViewModel = LargeFilesViewModel()
+    @State private var showSettings = false
 
     private var sidebarBackground: Color {
         Color(nsColor: .underPageBackgroundColor)
@@ -90,13 +91,24 @@ struct MainWindow: View {
         .onReceive(NotificationCenter.default.publisher(for: .switchToUninstallerSection)) { _ in
             selectedSection = .uninstaller
         }
+        .onReceive(NotificationCenter.default.publisher(for: .switchToLargeFilesSection)) { _ in
+            selectedSection = .largeFiles
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
+            showSettings = true
+        }
         .toolbar {
             ToolbarItem(placement: .automatic) {
-                SettingsLink {
+                Button {
+                    showSettings = true
+                } label: {
                     Image(systemName: "gearshape")
                 }
                 .help("Settings")
             }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView(isPresented: $showSettings)
         }
         .frame(minWidth: 650, minHeight: 450)
     }

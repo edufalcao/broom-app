@@ -11,6 +11,14 @@ struct BroomApp: App {
         .defaultSize(width: 750, height: 520)
         .windowResizability(.contentMinSize)
         .commands {
+            // Replace the default Preferences menu item with our own
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings...") {
+                    NotificationCenter.default.post(name: .openSettings, object: nil)
+                }
+                .keyboardShortcut(",", modifiers: [.command])
+            }
+
             CommandGroup(after: .newItem) {
                 Button("Scan System") {
                     NotificationCenter.default.post(name: .startScan, object: nil)
@@ -28,11 +36,12 @@ struct BroomApp: App {
                     NotificationCenter.default.post(name: .switchToUninstallerSection, object: nil)
                 }
                 .keyboardShortcut("2", modifiers: [.command])
-            }
-        }
 
-        Settings {
-            SettingsView()
+                Button("Large Files") {
+                    NotificationCenter.default.post(name: .switchToLargeFilesSection, object: nil)
+                }
+                .keyboardShortcut("3", modifiers: [.command])
+            }
         }
     }
 }
@@ -43,7 +52,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        // Handle .app files dropped on Dock icon
         for url in urls where url.pathExtension == "app" {
             NotificationCenter.default.post(name: .appDroppedOnDock, object: url)
         }
@@ -53,6 +61,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 extension Notification.Name {
     static let startScan = Notification.Name("com.broom.startScan")
     static let appDroppedOnDock = Notification.Name("com.broom.appDroppedOnDock")
+    static let openSettings = Notification.Name("com.broom.openSettings")
     static let switchToCleanerSection = Notification.Name("com.broom.switchToCleanerSection")
     static let switchToUninstallerSection = Notification.Name("com.broom.switchToUninstallerSection")
+    static let switchToLargeFilesSection = Notification.Name("com.broom.switchToLargeFilesSection")
 }

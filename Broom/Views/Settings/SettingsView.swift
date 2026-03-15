@@ -1,28 +1,43 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @Binding var isPresented: Bool
+
     var body: some View {
-        TabView {
-            GeneralSettingsView()
-                .tabItem {
-                    Label("General", systemImage: "gear")
-                }
+        VStack(spacing: 0) {
+            TabView {
+                GeneralSettingsView()
+                    .tabItem {
+                        Label("General", systemImage: "gear")
+                    }
 
-            CleaningSettingsView()
-                .tabItem {
-                    Label("Cleaning", systemImage: "trash")
-                }
+                CleaningSettingsView()
+                    .tabItem {
+                        Label("Cleaning", systemImage: "trash")
+                    }
 
-            SafeListSettingsView()
-                .tabItem {
-                    Label("Safe List", systemImage: "shield")
-                }
+                SafeListSettingsView()
+                    .tabItem {
+                        Label("Safe List", systemImage: "shield")
+                    }
 
-            AboutSettingsView()
-                .tabItem {
-                    Label("About", systemImage: "info.circle")
+                AboutSettingsView()
+                    .tabItem {
+                        Label("About", systemImage: "info.circle")
+                    }
+            }
+
+            Divider()
+
+            HStack {
+                Spacer()
+                Button("Done") {
+                    isPresented = false
                 }
+                .keyboardShortcut(.defaultAction)
+            }
+            .padding(12)
         }
-        .frame(width: 560, height: 420)
+        .frame(width: 560, height: 460)
     }
 }
