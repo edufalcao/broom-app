@@ -18,7 +18,8 @@ Prepare Broom releases in the repository root. Treat the GitHub Actions `Release
 2. Prepare release metadata first.
    - Update `project.yml` version fields when the version changes.
    - Update `CHANGELOG.md`.
-   - Create or update `docs/releases/X.Y.Z.md`.
+   - Create or update `docs/releases/notes/X.Y.Z.md`.
+   - If the release needs planning notes, keep them in `docs/releases/plans/X.Y.Z.md`.
    - If the app shows release notes in-product, update that content too.
 
 3. Write release notes using the Broom format.
@@ -44,7 +45,7 @@ Prepare Broom releases in the repository root. Treat the GitHub Actions `Release
 
 7. After the workflow-created release exists, apply the curated notes.
    - Run:
-     - `gh release edit vX.Y.Z --title "Broom X.Y.Z" --notes-file docs/releases/X.Y.Z.md`
+     - `gh release edit vX.Y.Z --title "Broom X.Y.Z" --notes-file docs/releases/notes/X.Y.Z.md`
    - Verify:
      - `gh release view vX.Y.Z --json name,body,url,assets`
    - Confirm the DMG asset name matches `Broom-vX.Y.Z.dmg`.

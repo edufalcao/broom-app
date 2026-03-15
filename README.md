@@ -98,7 +98,7 @@ xcodebuild -scheme Broom -configuration Debug test
 
 ## Architecture
 
-MVVM + Service Protocol Layer. Services are Swift actors communicating through protocols, enabling full dependency injection and mock-based testing. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
+MVVM + Service Protocol Layer. Services are Swift actors communicating through protocols, enabling full dependency injection and mock-based testing. See [docs/engineering/architecture.md](docs/engineering/architecture.md) for details.
 
 **49 source files, 14 test files, ~39 tests** across scanner, cleaner, orphan detection, app inventory, uninstaller, preferences, and view model layers.
 
