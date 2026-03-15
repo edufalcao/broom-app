@@ -113,12 +113,13 @@ struct LargeFilesView: View {
 
                 Spacer()
 
-                Picker("Sort:", selection: $viewModel.sortOrder) {
+                Picker("", selection: $viewModel.sortOrder) {
                     ForEach(LargeFilesViewModel.SortOrder.allCases, id: \.self) { order in
                         Text(order.rawValue).tag(order)
                     }
                 }
                 .pickerStyle(.segmented)
+                .labelsHidden()
                 .frame(width: 200)
             }
             .padding()
