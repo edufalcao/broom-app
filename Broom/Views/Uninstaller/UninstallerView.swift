@@ -145,7 +145,7 @@ struct UninstallerView: View {
             .background(Color(nsColor: .controlBackgroundColor))
             .overlay(alignment: .trailing) {
                 Rectangle()
-                    .fill(Color(nsColor: .separatorColor))
+                    .fill(Color.gray.opacity(0.4))
                     .frame(width: 1)
             }
 
