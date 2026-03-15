@@ -11,63 +11,71 @@ struct AboutSettingsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                VStack(spacing: 16) {
-                    Image(nsImage: NSApp.applicationIconImage)
-                        .resizable()
-                        .frame(width: 64, height: 64)
+        VStack(spacing: 0) {
+            // App info (fixed)
+            VStack(spacing: 12) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 64, height: 64)
 
-                    Text("Broom")
-                        .font(.title.bold())
+                Text("Broom")
+                    .font(.title2.bold())
 
-                    VStack(spacing: 4) {
-                        Text("Version \(version) (\(buildNumber))")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                VStack(spacing: 4) {
+                    Text("Version \(version) (\(buildNumber))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
-                        Text("A free, open-source macOS system cleaner")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text("A free, open-source macOS system cleaner")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
 
                     Text("License: MIT")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
-
-                releaseNotesSection
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
-        }
-    }
 
-    private var releaseNotesSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("What's New in \(ReleaseNotes.currentVersion)")
-                .font(.headline)
+            Divider()
 
-            Text("Changes since \(ReleaseNotes.previousVersion), released on \(ReleaseNotes.currentReleaseDate).")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            // Release notes (scrollable, fixed height)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("What's New in \(ReleaseNotes.currentVersion)")
+                        .font(.headline)
+                    Spacer()
+                    Text("Released \(ReleaseNotes.currentReleaseDate)")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal)
+                .padding(.top, 10)
 
-            ForEach(ReleaseNotes.sections) { section in
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(section.title)
-                        .font(.subheadline.bold())
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(ReleaseNotes.sections) { section in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(section.title)
+                                    .font(.subheadline.bold())
 
-                    ForEach(section.items, id: \.self) { item in
-                        HStack(alignment: .top, spacing: 8) {
-                            Text("•")
-                                .foregroundStyle(.secondary)
-                            Text(item)
-                                .fixedSize(horizontal: false, vertical: true)
+                                ForEach(section.items, id: \.self) { item in
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Text("•")
+                                            .foregroundStyle(.secondary)
+                                        Text(item)
+                                            .font(.callout)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                }
+                            }
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.bottom, 10)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

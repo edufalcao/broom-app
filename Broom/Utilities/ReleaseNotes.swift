@@ -8,39 +8,50 @@ struct ReleaseNoteSection: Identifiable {
 }
 
 enum ReleaseNotes {
-    static let currentVersion = "1.1.0"
-    static let previousVersion = "1.0.0"
+    static let currentVersion = "1.2.0"
+    static let previousVersion = "1.1.0"
     static let currentReleaseDate = "2026-03-15"
 
     static let sections: [ReleaseNoteSection] = [
         ReleaseNoteSection(
-            title: "Cleaner",
+            title: "Large File Finder",
             items: [
-                "Orphaned app leftovers are now detected and merged into real scan results.",
-                "Cleaning settings now control developer-cache scans, .DS_Store scans, temp-file age, and delete behavior.",
-                "Running apps are detected before cleaning so you can skip active-app caches or continue intentionally."
+                "New sidebar tab to scan your home directory for large files (100 MB+).",
+                "Sort results by size, name, or modified date.",
+                "Configurable minimum size threshold (100 MB, 250 MB, 500 MB, 1 GB).",
+                "Reveal any file in Finder with one click.",
             ]
         ),
         ReleaseNoteSection(
-            title: "Uninstaller",
+            title: "Cleaner",
             items: [
-                "Dropped .app bundles now open an uninstall preview even when they were not already indexed.",
-                "App sizes include associated files, so size sorting reflects the full uninstall footprint.",
-                "Uninstall previews now support per-file selection plus Trash or permanent-delete choices."
+                "Docker cleanup: scan Docker VM disk images and configuration.",
+                "Homebrew cleanup: detect old formula versions and cached downloads.",
+                "App Leftovers now appear as a regular category row with drill-in detail.",
+                "Confidence badges preserved on each leftover item.",
+            ]
+        ),
+        ReleaseNoteSection(
+            title: "Orphan Detection",
+            items: [
+                "Receipt database: reads /var/db/receipts to identify apps installed via .pkg.",
+                "Spotlight metadata: queries macOS for previously indexed bundle IDs.",
+                "Improved confidence scoring using receipts, Spotlight, and Saved Application State.",
             ]
         ),
         ReleaseNoteSection(
             title: "App Polish",
             items: [
-                "The Apps view keeps visible separators between the sidebar, list, and detail panes even when the window is inactive.",
-                "Keyboard shortcuts and toolbar navigation remain aligned with the split-view layout."
+                "Dock icon badge shows total junk size after scan, clears after cleaning.",
+                "VoiceOver accessibility labels on all key interactive elements.",
+                "Safe List empty state with description instead of blank screen.",
             ]
         ),
         ReleaseNoteSection(
             title: "Quality",
             items: [
-                "Added expanded automated coverage for scanner, orphan detection, settings, cleaning, inventory, and uninstall flows."
+                "57 tests across 19 suites covering all new features.",
             ]
-        )
+        ),
     ]
 }
