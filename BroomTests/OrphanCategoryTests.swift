@@ -1,0 +1,87 @@
+import Foundation
+import Testing
+@testable import Broom
+
+@Suite("Orphan as Category")
+struct OrphanCategoryTests {
+    @Test @MainActor func orphansConvertedToCategory() async {
+        let orphanLocation = CleanableItem(
+            path: URL(fileURLWithPath: "/tmp/orphan/cache"),
+            name: "Caches/com.old.app",
+            size: 5000,
+            isSelected: false
+        )
+        let orphan = OrphanedApp(
+            appName: "OldApp",
+            bundleIdentifier: "com.old.app",
+            confidence: .high,
+            locations: [orphanLocation]
+        )
+
+        let mockScanner = MockScanner {
+            AsyncStream { continuation in
+                let result = ScanResult(
+                    categories: [
+                        CleanCategory(
+                            name: "System Caches", icon: "internaldrive", description: "",
+                            items: [CleanableItem(path: URL(fileURLWithPath: "/tmp/cache"), size: 1000)]
+                        ),
+                    ],
+                    orphanedApps: [],
+                    scanDuration: 0.1,
+                    scanDate: Date()
+                )
+                continuation.yield(.complete(result))
+                continuation.finish()
+            }
+        }
+
+        let mockOrphanDetector = MockOrphanDetector(orphans: [orphan])
+
+        let vm = ScanViewModel(
+            scanner: mockScanner,
+            orphanDetector: mockOrphanDetector
+        )
+
+        vm.startScan()
+        await TestSupport.awaitCondition { vm.state == .results }
+
+        // Should have 2 categories: System Caches + App Leftovers
+        #expect(vm.scanResult?.categories.count == 2)
+
+        let leftovers = vm.scanResult?.categories.first { $0.name == "App Leftovers" }
+        #expect(leftovers != nil)
+        #expect(leftovers?.items.count == 1)
+        #expect(leftovers?.items[0].name.contains("OldApp") == true)
+        #expect(leftovers?.isSelected == false) // defaults to unselected
+    }
+
+    @Test @MainActor func noLeftoversCategoryWhenNoOrphans() async {
+        let mockScanner = MockScanner {
+            AsyncStream { continuation in
+                let result = ScanResult(
+                    categories: [
+                        CleanCategory(
+                            name: "System Caches", icon: "internaldrive", description: "",
+                            items: [CleanableItem(path: URL(fileURLWithPath: "/tmp/cache"), size: 1000)]
+                        ),
+                    ],
+                    orphanedApps: [],
+                    scanDuration: 0.1,
+                    scanDate: Date()
+                )
+                continuation.yield(.complete(result))
+                continuation.finish()
+            }
+        }
+
+        let mockOrphanDetector = MockOrphanDetector(orphans: [])
+        let vm = ScanViewModel(scanner: mockScanner, orphanDetector: mockOrphanDetector)
+
+        vm.startScan()
+        await TestSupport.awaitCondition { vm.state == .results }
+
+        #expect(vm.scanResult?.categories.count == 1)
+        #expect(vm.scanResult?.categories.first { $0.name == "App Leftovers" } == nil)
+    }
+}
