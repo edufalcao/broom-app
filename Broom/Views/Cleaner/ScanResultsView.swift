@@ -155,7 +155,7 @@ struct ScanResultsView: View {
     private func orphanLocations(_ orphan: OrphanedApp) -> some View {
         VStack(spacing: 0) {
             ForEach(orphan.locations) { location in
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     Toggle(isOn: Binding(
                         get: { location.isSelected },
                         set: { _ in viewModel.toggleOrphanLocation(location.id, in: orphan.id) }
@@ -165,29 +165,41 @@ struct ScanResultsView: View {
                     .toggleStyle(.checkbox)
 
                     Image(systemName: "folder")
-                        .frame(width: 20)
-                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                        .frame(width: 16)
+                        .foregroundStyle(.tertiary)
 
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 1) {
                         Text(location.name)
+                            .font(.callout)
                             .lineLimit(1)
                         Text(location.path.path)
                             .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.quaternary)
                             .lineLimit(1)
                             .truncationMode(.head)
                     }
 
                     Spacer()
 
-                    SizeLabel(bytes: location.size)
+                    Text(SizeFormatter.format(location.size))
+                        .font(.callout)
+                        .foregroundStyle(.tertiary)
+                        .monospacedDigit()
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 3)
 
                 if location.id != orphan.locations.last?.id {
-                    Divider().padding(.leading, 40)
+                    Divider().padding(.leading, 32)
                 }
             }
         }
+        .padding(.leading, 36)
+        .padding(.vertical, 4)
+        .padding(.trailing, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color(nsColor: .quaternarySystemFill))
+        )
     }
 }

@@ -13,5 +13,6 @@ struct SizeLabel: View {
         Text(SizeFormatter.format(bytes))
             .foregroundStyle(color)
             .monospacedDigit()
+            .accessibilityLabel(SizeFormatter.format(bytes))
     }
 }

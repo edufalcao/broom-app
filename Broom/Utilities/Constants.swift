@@ -62,6 +62,20 @@ enum Constants {
     static let yarnCache = userCaches.appendingPathComponent("Yarn")
     static let pipCache = userCaches.appendingPathComponent("pip")
 
+    // MARK: - Docker
+
+    static let dockerData = library.appendingPathComponent("Containers/com.docker.docker/Data/vms")
+    static let dockerConfig = home.appendingPathComponent(".docker")
+
+    // MARK: - Homebrew
+
+    static let homebrewCellar: URL = {
+        // ARM Mac: /opt/homebrew, Intel: /usr/local
+        let armPath = URL(fileURLWithPath: "/opt/homebrew/Cellar")
+        let intelPath = URL(fileURLWithPath: "/usr/local/Cellar")
+        return FileManager.default.fileExists(atPath: armPath.path) ? armPath : intelPath
+    }()
+
     // MARK: - Mail
 
     static let mailAttachments = library.appendingPathComponent(

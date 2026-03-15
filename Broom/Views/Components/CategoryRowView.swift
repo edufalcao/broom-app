@@ -42,5 +42,9 @@ struct CategoryRowView: View {
         .padding(.vertical, 4)
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(category.name), \(SizeFormatter.format(category.totalSize))")
+        .accessibilityValue(category.isMixed ? "Partially selected" : (category.isSelected ? "Selected" : "Not selected"))
+        .accessibilityHint("Double-click to view individual items")
     }
 }

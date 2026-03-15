@@ -122,6 +122,8 @@ actor FileScanner: ScanServing {
             phases.append(.dsStoreFiles)
         }
 
+        phases.append(.dockerData)
+        phases.append(.homebrewExtended)
         phases.append(.mailAttachments)
 
         return phases
@@ -146,6 +148,10 @@ actor FileScanner: ScanServing {
             return await scanDeveloperCaches(userEntries: preferences.safeListEntries)
         case .dsStoreFiles:
             return await scanDSStores(userEntries: preferences.safeListEntries)
+        case .dockerData:
+            return await scanDocker(userEntries: preferences.safeListEntries)
+        case .homebrewExtended:
+            return await scanHomebrewExtended(userEntries: preferences.safeListEntries)
         case .mailAttachments:
             return await scanMailAttachments(userEntries: preferences.safeListEntries)
         }
@@ -347,6 +353,80 @@ actor FileScanner: ScanServing {
         )
     }
 
+    func scanDocker(userEntries: Set<String>) async -> CleanCategory? {
+        var items: [CleanableItem] = []
+
+        let dockerPaths: [(String, URL)] = [
+            ("Docker VM Data", Constants.dockerData),
+            ("Docker Config", Constants.dockerConfig),
+        ]
+
+        for (name, path) in dockerPaths {
+            if let item = makeCleanableItem(at: path, displayName: name, userEntries: userEntries) {
+                items.append(item)
+            }
+        }
+
+        guard !items.isEmpty else { return nil }
+
+        return CleanCategory(
+            name: "Docker Data",
+            icon: "cube.box",
+            description: "Docker VM disk images and configuration",
+            items: items
+        )
+    }
+
+    func scanHomebrewExtended(userEntries: Set<String>) async -> CleanCategory? {
+        var items: [CleanableItem] = []
+
+        // Homebrew cache (downloads)
+        if let item = makeCleanableItem(
+            at: locations.homebrewCache,
+            displayName: "Homebrew Cache",
+            userEntries: userEntries
+        ) {
+            items.append(item)
+        }
+
+        // Old Cellar versions — report but don't auto-select
+        let cellar = Constants.homebrewCellar
+        if fileManager.fileExists(atPath: cellar.path),
+           let formulas = try? fileManager.contentsOfDirectory(
+               at: cellar, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+           ) {
+            for formula in formulas {
+                guard let versions = try? fileManager.contentsOfDirectory(
+                    at: formula, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+                ), versions.count > 1 else { continue }
+
+                // Keep the latest version, report older ones
+                let sorted = versions.sorted { $0.lastPathComponent > $1.lastPathComponent }
+                for oldVersion in sorted.dropFirst() {
+                    let size = directorySize(at: oldVersion)
+                    if size > 0 {
+                        items.append(CleanableItem(
+                            path: oldVersion,
+                            name: "\(formula.lastPathComponent) \(oldVersion.lastPathComponent)",
+                            size: size,
+                            isSelected: false // Don't auto-select old formula versions
+                        ))
+                    }
+                }
+            }
+        }
+
+        guard !items.isEmpty else { return nil }
+
+        return CleanCategory(
+            name: "Homebrew",
+            icon: "mug",
+            description: "Homebrew cache and old formula versions",
+            items: items,
+            defaultSelected: false
+        )
+    }
+
     func scanMailAttachments(userEntries: Set<String>) async -> CleanCategory? {
         guard fileManager.isReadableFile(atPath: locations.mailAttachments.path),
               !ExclusionList.isExcluded(locations.mailAttachments, userEntries: userEntries)
@@ -521,6 +601,8 @@ private enum ScanPhase {
     case xcodeData
     case developerCaches
     case dsStoreFiles
+    case dockerData
+    case homebrewExtended
     case mailAttachments
 
     var displayName: String {
@@ -532,6 +614,8 @@ private enum ScanPhase {
         case .xcodeData: return "Xcode Data"
         case .developerCaches: return "Developer Caches"
         case .dsStoreFiles: return ".DS_Store Files"
+        case .dockerData: return "Docker Data"
+        case .homebrewExtended: return "Homebrew"
         case .mailAttachments: return "Mail Attachments"
         }
     }

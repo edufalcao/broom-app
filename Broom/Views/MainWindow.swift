@@ -4,6 +4,7 @@ struct MainWindow: View {
     @State private var selectedSection: SidebarSection? = .cleaner
     @State private var scanViewModel = ScanViewModel()
     @State private var uninstallerViewModel = UninstallerViewModel()
+    @State private var largeFilesViewModel = LargeFilesViewModel()
 
     private var sidebarBackground: Color {
         Color(nsColor: .underPageBackgroundColor)
@@ -16,11 +17,13 @@ struct MainWindow: View {
     enum SidebarSection: String, CaseIterable, Hashable {
         case cleaner = "Clean"
         case uninstaller = "Apps"
+        case largeFiles = "Large Files"
 
         var icon: String {
             switch self {
             case .cleaner: return "magnifyingglass"
             case .uninstaller: return "shippingbox"
+            case .largeFiles: return "doc.badge.arrow.up"
             }
         }
     }
@@ -29,6 +32,7 @@ struct MainWindow: View {
         switch section {
         case .cleaner: return scanViewModel.state.isBusy
         case .uninstaller: return uninstallerViewModel.state == .loading
+        case .largeFiles: return largeFilesViewModel.state.isBusy
         }
     }
 
@@ -45,6 +49,8 @@ struct MainWindow: View {
                         }
                     }
                     .tag(section)
+                    .accessibilityLabel(section.rawValue)
+                    .accessibilityHint("Switch to \(section.rawValue) section")
                 }
             }
             .listStyle(.sidebar)
@@ -62,6 +68,8 @@ struct MainWindow: View {
                 CleanerView(viewModel: scanViewModel)
             case .uninstaller:
                 UninstallerView(viewModel: uninstallerViewModel)
+            case .largeFiles:
+                LargeFilesView(viewModel: largeFilesViewModel)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .startScan)) { _ in

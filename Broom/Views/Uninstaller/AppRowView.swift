@@ -42,5 +42,7 @@ struct AppRowView: View {
         }
         .padding(.vertical, 2)
         .opacity(app.isProtected ? 0.5 : 1.0)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(app.name), \(secondaryText)\(app.isProtected ? ", System App" : "")")
     }
 }

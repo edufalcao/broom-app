@@ -37,5 +37,7 @@ struct PermissionBanner: View {
         .background(.orange.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .padding(.horizontal)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Full Disk Access required for complete scan. Grant access to scan Safari caches, Mail attachments, and more.")
     }
 }

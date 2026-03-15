@@ -35,5 +35,6 @@ struct ConfidenceBadge: View {
                 .font(.caption2)
         }
         .foregroundStyle(color)
+        .accessibilityLabel("Confidence: \(label)")
     }
 }

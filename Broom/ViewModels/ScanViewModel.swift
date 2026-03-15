@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -95,6 +96,7 @@ class ScanViewModel {
                     self.state = .results
                     UserDefaults.standard.set(Date(), forKey: "lastScanDate")
                     NotificationManager.sendScanComplete(totalSize: completedResult.totalSize)
+                    self.updateDockBadge(totalSize: completedResult.totalSize)
                 }
             }
         }
@@ -247,6 +249,7 @@ class ScanViewModel {
                     )
                     NotificationManager.sendCleanComplete(freedBytes: report.freedBytes)
                     pendingCleanItems = []
+                    self.clearDockBadge()
                 }
             }
         }
@@ -274,5 +277,16 @@ class ScanViewModel {
         showCleanConfirmation = false
         showRunningAppsAlert = false
         state = .idle
+        clearDockBadge()
+    }
+
+    // MARK: - Dock Badge
+
+    private func updateDockBadge(totalSize: Int64) {
+        NSApp.dockTile.badgeLabel = totalSize > 0 ? SizeFormatter.format(totalSize) : nil
+    }
+
+    private func clearDockBadge() {
+        NSApp.dockTile.badgeLabel = nil
     }
 }
