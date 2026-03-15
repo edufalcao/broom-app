@@ -142,8 +142,11 @@ struct UninstallerView: View {
                 .padding(8)
             }
             .frame(minWidth: 220, idealWidth: 260, maxWidth: 320)
-
-            Divider()
+            .overlay(alignment: .trailing) {
+                Rectangle()
+                    .fill(Color(nsColor: .separatorColor))
+                    .frame(width: 1)
+            }
 
             // Right: Detail
             if let app = viewModel.selectedApp {
