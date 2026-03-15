@@ -2,17 +2,21 @@ import SwiftUI
 
 struct ScanResultsView: View {
     @Bindable var viewModel: ScanViewModel
-    @State private var selectedCategory: CleanCategory?
+    @State private var selectedCategoryID: UUID?
 
     var body: some View {
-        if let selectedCategory {
-            CategoryDetailView(
-                category: selectedCategory,
-                viewModel: viewModel,
-                onBack: { self.selectedCategory = nil }
-            )
-        } else {
+        NavigationStack {
             resultsList
+                .navigationDestination(item: $selectedCategoryID) { categoryID in
+                    if let category = viewModel.scanResult?.categories.first(where: { $0.id == categoryID }) {
+                        CategoryDetailView(
+                            category: category,
+                            viewModel: viewModel,
+                            onBack: { selectedCategoryID = nil }
+                        )
+                        .navigationBarBackButtonHidden()
+                    }
+                }
         }
     }
 
@@ -48,7 +52,7 @@ struct ScanResultsView: View {
                             CategoryRowView(
                                 category: category,
                                 onToggle: { viewModel.toggleCategory(category.id) },
-                                onTap: { selectedCategory = category }
+                                onTap: { selectedCategoryID = category.id }
                             )
                             .padding(.horizontal)
 

@@ -8,49 +8,41 @@ struct ReleaseNoteSection: Identifiable {
 }
 
 enum ReleaseNotes {
-    static let currentVersion = "1.2.0"
-    static let previousVersion = "1.1.0"
+    static let currentVersion = "1.2.1"
+    static let previousVersion = "1.2.0"
     static let currentReleaseDate = "2026-03-15"
 
     static let sections: [ReleaseNoteSection] = [
         ReleaseNoteSection(
-            title: "Large File Finder",
+            title: "Settings & Navigation",
             items: [
-                "New sidebar tab to scan your home directory for large files (100 MB+).",
-                "Sort results by size, name, or modified date.",
-                "Configurable minimum size threshold (100 MB, 250 MB, 500 MB, 1 GB).",
-                "Reveal any file in Finder with one click.",
+                "Settings now opens as a native macOS Settings window (Cmd+,).",
+                "Toolbar gear button uses SettingsLink for standard macOS behavior.",
+                "Category drill-in uses NavigationStack for proper push/pop transitions.",
             ]
         ),
         ReleaseNoteSection(
-            title: "Cleaner",
+            title: "Accessibility & Polish",
             items: [
-                "Docker cleanup: scan Docker VM disk images and configuration.",
-                "Homebrew cleanup: detect old formula versions and cached downloads.",
-                "App Leftovers now appear as a regular category row with drill-in detail.",
-                "Confidence badges preserved on each leftover item.",
+                "Category rows are now proper Buttons for full VoiceOver and keyboard support.",
+                "Smooth fade animations on all state transitions (scan, clean, done).",
+                "Clean complete screen shows correct action (Trash vs permanently deleted).",
+                "Uninstall confirmation sheet adapts to content height.",
             ]
         ),
         ReleaseNoteSection(
-            title: "Orphan Detection",
+            title: "Architecture",
             items: [
-                "Receipt database: reads /var/db/receipts to identify apps installed via .pkg.",
-                "Spotlight metadata: queries macOS for previously indexed bundle IDs.",
-                "Improved confidence scoring using receipts, Spotlight, and Saved Application State.",
-            ]
-        ),
-        ReleaseNoteSection(
-            title: "App Polish",
-            items: [
-                "Dock icon badge shows total junk size after scan, clears after cleaning.",
-                "VoiceOver accessibility labels on all key interactive elements.",
-                "Safe List empty state with description instead of blank screen.",
+                "Replaced NotificationCenter with type-safe AppRouter for cross-component actions.",
+                "Added @MainActor to UninstallerViewModel for concurrency safety.",
+                "Large Files scanner now supports dependency injection for testability.",
+                "Cached date formatters in list rows for better scroll performance.",
             ]
         ),
         ReleaseNoteSection(
             title: "Quality",
             items: [
-                "57 tests across 19 suites covering all new features.",
+                "65 tests across 20 suites.",
             ]
         ),
     ]

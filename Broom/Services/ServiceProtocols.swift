@@ -23,3 +23,7 @@ protocol AppUninstalling {
     func prepareUninstall(app: InstalledApp) async -> UninstallPlan
     func executeUninstall(plan: UninstallPlan, moveToTrash: Bool) -> AsyncStream<CleanProgress>
 }
+
+protocol LargeFileScanning {
+    nonisolated func scan(root: URL, minimumSize: Int64) -> AsyncStream<LargeFileScanProgress>
+}

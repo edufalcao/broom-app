@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import SwiftUI
 
+@MainActor
 @Observable
 class UninstallerViewModel {
     enum State: Equatable {

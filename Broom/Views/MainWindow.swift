@@ -1,11 +1,10 @@
 import SwiftUI
 
 struct MainWindow: View {
-    @State private var selectedSection: SidebarSection? = .cleaner
+    @Environment(AppRouter.self) private var router
     @State private var scanViewModel = ScanViewModel()
     @State private var uninstallerViewModel = UninstallerViewModel()
     @State private var largeFilesViewModel = LargeFilesViewModel()
-    @State private var showSettings = false
 
     private var sidebarBackground: Color {
         Color(nsColor: .underPageBackgroundColor)
@@ -13,20 +12,6 @@ struct MainWindow: View {
 
     private var paneSeparator: Color {
         Color(nsColor: .separatorColor).opacity(0.9)
-    }
-
-    enum SidebarSection: String, CaseIterable, Hashable {
-        case cleaner = "Clean"
-        case uninstaller = "Apps"
-        case largeFiles = "Large Files"
-
-        var icon: String {
-            switch self {
-            case .cleaner: return "magnifyingglass"
-            case .uninstaller: return "shippingbox"
-            case .largeFiles: return "doc.badge.arrow.up"
-            }
-        }
     }
 
     private func isSectionBusy(_ section: SidebarSection) -> Bool {
@@ -38,8 +23,9 @@ struct MainWindow: View {
     }
 
     var body: some View {
+        @Bindable var router = router
         NavigationSplitView {
-            List(selection: $selectedSection) {
+            List(selection: $router.selectedSection) {
                 ForEach(SidebarSection.allCases, id: \.self) { section in
                     HStack {
                         Label(section.rawValue, systemImage: section.icon)
@@ -64,7 +50,7 @@ struct MainWindow: View {
             }
             .navigationSplitViewColumnWidth(min: 140, ideal: 160, max: 200)
         } detail: {
-            switch selectedSection {
+            switch router.selectedSection {
             case .cleaner, nil:
                 CleanerView(viewModel: scanViewModel)
             case .uninstaller:
@@ -73,42 +59,27 @@ struct MainWindow: View {
                 LargeFilesView(viewModel: largeFilesViewModel)
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .startScan)) { _ in
-            selectedSection = .cleaner
-            if case .idle = scanViewModel.state {
-                scanViewModel.startScan()
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .appDroppedOnDock)) { notification in
-            if let url = notification.object as? URL {
-                selectedSection = .uninstaller
+        .onChange(of: router.pendingAction) { _, action in
+            guard let action else { return }
+            router.pendingAction = nil
+            switch action {
+            case .startScan:
+                router.selectedSection = .cleaner
+                if case .idle = scanViewModel.state {
+                    scanViewModel.startScan()
+                }
+            case .appDropped(let url):
+                router.selectedSection = .uninstaller
                 uninstallerViewModel.handleAppDrop(url: url)
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .switchToCleanerSection)) { _ in
-            selectedSection = .cleaner
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .switchToUninstallerSection)) { _ in
-            selectedSection = .uninstaller
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .switchToLargeFilesSection)) { _ in
-            selectedSection = .largeFiles
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
-            showSettings = true
-        }
         .toolbar {
             ToolbarItem(placement: .automatic) {
-                Button {
-                    showSettings = true
-                } label: {
+                SettingsLink {
                     Image(systemName: "gearshape")
                 }
                 .help("Settings")
             }
-        }
-        .sheet(isPresented: $showSettings) {
-            SettingsView(isPresented: $showSettings)
         }
         .frame(minWidth: 650, minHeight: 450)
     }

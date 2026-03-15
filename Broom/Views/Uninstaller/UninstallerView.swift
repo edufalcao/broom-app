@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct UninstallerView: View {
     @Bindable var viewModel: UninstallerViewModel
@@ -64,6 +63,7 @@ struct UninstallerView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: viewModel.state)
         .sheet(isPresented: $viewModel.showUninstallConfirmation) {
             if let plan = viewModel.uninstallPlan {
                 UninstallConfirmView(
@@ -193,21 +193,11 @@ struct UninstallerView: View {
             .background(detailPaneBackground)
         }
         .background(detailPaneBackground)
-        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-            handleDrop(providers)
-        }
-    }
-
-    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
-        for provider in providers {
-            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                guard let data = item as? Data,
-                      let url = URL(dataRepresentation: data, relativeTo: nil) else { return }
-                Task { @MainActor in
-                    viewModel.handleAppDrop(url: url)
-                }
+        .dropDestination(for: URL.self) { urls, _ in
+            for url in urls where url.pathExtension == "app" {
+                viewModel.handleAppDrop(url: url)
             }
+            return !urls.isEmpty
         }
-        return true
     }
 }

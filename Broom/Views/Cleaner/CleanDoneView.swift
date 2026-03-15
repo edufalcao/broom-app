@@ -4,6 +4,7 @@ struct CleanDoneView: View {
     let freedBytes: Int64
     let itemsCleaned: Int
     let itemsFailed: Int
+    let movedToTrash: Bool
     let onScanAgain: () -> Void
 
     var body: some View {
@@ -20,7 +21,7 @@ struct CleanDoneView: View {
             Text("Freed \(SizeFormatter.format(freedBytes)) of disk space")
                 .font(.subheadline)
 
-            Text("\(itemsCleaned) items moved to Trash")
+            Text("\(itemsCleaned) items \(movedToTrash ? "moved to Trash" : "permanently deleted")")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

@@ -4,6 +4,32 @@ All notable changes to Broom will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-03-15
+
+### Changed
+- Settings opens as a native macOS Settings window instead of a modal sheet
+- Toolbar gear button uses SettingsLink for standard macOS behavior
+- Category drill-in uses NavigationStack for proper push/pop transitions with scroll preservation
+- Category rows are Buttons instead of tap gestures for full VoiceOver and keyboard support
+- Replaced NotificationCenter communication with type-safe AppRouter observable
+- Clean complete screen reflects actual delete method (Trash vs permanent)
+- Uninstall confirmation sheet adapts to content height instead of fixed size
+- App drop handler uses modern dropDestination API
+
+### Fixed
+- Missing @MainActor on UninstallerViewModel causing potential data races
+- RelativeDateTimeFormatter allocated on every list row evaluation (now cached)
+- Redundant accessibility label on SizeLabel duplicating text content
+- Force-unwrapped URL in PermissionChecker.requestFullDiskAccess
+
+### Added
+- AppRouter: @Observable class for type-safe cross-component action dispatch
+- LargeFileScanning protocol for dependency injection in LargeFilesViewModel
+- Smooth fade animations on state transitions in all three main views
+- 8 new tests: AppRouter (5), ScanViewModel movedToTrash (2), LargeFilesViewModel DI (1)
+- MockLargeFileScanner test infrastructure
+- 65 tests across 20 suites
+
 ## [1.2.0] - 2026-03-15
 
 ### Added

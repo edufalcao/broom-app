@@ -28,11 +28,12 @@ struct CleanerView: View {
                     totalCount: total
                 )
 
-            case .done(let freed, let cleaned, let failed):
+            case .done(let freed, let cleaned, let failed, let movedToTrash):
                 CleanDoneView(
                     freedBytes: freed,
                     itemsCleaned: cleaned,
                     itemsFailed: failed,
+                    movedToTrash: movedToTrash,
                     onScanAgain: { viewModel.reset() }
                 )
 
@@ -49,6 +50,7 @@ struct CleanerView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.state)
         .confirmationDialog(
             "Clean \(viewModel.confirmationItems) items?",
             isPresented: $viewModel.showCleanConfirmation

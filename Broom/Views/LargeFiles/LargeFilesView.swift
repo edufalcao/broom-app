@@ -51,6 +51,7 @@ struct LargeFilesView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.state)
         .confirmationDialog(
             "Move \(viewModel.selectedCount) files to Trash?",
             isPresented: $viewModel.showCleanConfirmation

@@ -12,7 +12,7 @@ class ScanViewModel {
         case scanning(progress: Double, currentCategory: String, foundSoFar: Int64)
         case results
         case cleaning(progress: Double, currentItem: String, cleanedCount: Int, totalCount: Int)
-        case done(freedBytes: Int64, itemsCleaned: Int, itemsFailed: Int)
+        case done(freedBytes: Int64, itemsCleaned: Int, itemsFailed: Int, movedToTrash: Bool)
         case error(message: String)
 
         static func == (lhs: State, rhs: State) -> Bool {
@@ -271,7 +271,8 @@ class ScanViewModel {
                     self.state = .done(
                         freedBytes: report.freedBytes,
                         itemsCleaned: report.itemsCleaned,
-                        itemsFailed: report.itemsFailed
+                        itemsFailed: report.itemsFailed,
+                        movedToTrash: moveToTrash
                     )
                     NotificationManager.sendCleanComplete(freedBytes: report.freedBytes)
                     pendingCleanItems = []

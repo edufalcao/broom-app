@@ -62,6 +62,7 @@ struct UninstallConfirmView: View {
             }
         }
         .padding(20)
-        .frame(width: 560, height: 460)
+        .frame(width: 560)
+        .frame(minHeight: 360, idealHeight: 460)
     }
 }

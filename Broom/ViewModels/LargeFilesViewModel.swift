@@ -55,9 +55,17 @@ class LargeFilesViewModel {
     var minimumSize: MinimumSize = .mb100
     var showCleanConfirmation = false
 
-    private let scanner = LargeFileScanner()
-    private let cleaner = FileCleaner()
+    private let scanner: LargeFileScanning
+    private let cleaner: CleanServing
     private var scanTask: Task<Void, Never>?
+
+    init(
+        scanner: LargeFileScanning = LargeFileScanner(),
+        cleaner: CleanServing = FileCleaner()
+    ) {
+        self.scanner = scanner
+        self.cleaner = cleaner
+    }
 
     var sortedFiles: [LargeFile] {
         switch sortOrder {

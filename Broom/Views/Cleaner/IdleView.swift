@@ -5,13 +5,17 @@ struct IdleView: View {
     @State private var showFDABanner = false
     @AppStorage("fdaBannerDismissed") private var bannerDismissed = false
 
+    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter
+    }()
+
     private var lastScanText: String {
         guard let date = UserDefaults.standard.object(forKey: "lastScanDate") as? Date else {
             return "Never scanned"
         }
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        return "Last scan: \(formatter.localizedString(for: date, relativeTo: Date()))"
+        return "Last scan: \(Self.relativeDateFormatter.localizedString(for: date, relativeTo: Date()))"
     }
 
     var body: some View {

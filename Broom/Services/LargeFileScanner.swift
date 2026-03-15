@@ -5,7 +5,7 @@ enum LargeFileScanProgress: Sendable {
     case complete([LargeFile])
 }
 
-actor LargeFileScanner {
+actor LargeFileScanner: LargeFileScanning {
     private let fileManager = FileManager.default
 
     private let skipDirectories: Set<String> = [

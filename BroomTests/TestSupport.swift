@@ -119,6 +119,22 @@ final class MockCleaner: CleanServing {
     }
 }
 
+final class MockLargeFileScanner: LargeFileScanning, @unchecked Sendable {
+    let files: [LargeFile]
+
+    init(files: [LargeFile] = []) {
+        self.files = files
+    }
+
+    nonisolated func scan(root: URL, minimumSize: Int64) -> AsyncStream<LargeFileScanProgress> {
+        let files = self.files
+        return AsyncStream { continuation in
+            continuation.yield(.complete(files))
+            continuation.finish()
+        }
+    }
+}
+
 final class MockAppInventory: AppInventoryServing {
     var apps: [InstalledApp]
     var bundleIdentifiers: Set<String>

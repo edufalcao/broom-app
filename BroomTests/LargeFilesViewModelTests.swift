@@ -55,6 +55,21 @@ struct LargeFilesViewModelTests {
         #expect(sorted[1].name == "zebra.bin")
     }
 
+    @MainActor
+    @Test func scanUsesInjectedScanner() async {
+        let mockScanner = MockLargeFileScanner(files: [
+            LargeFile(path: URL(fileURLWithPath: "/tmp/big.dmg"), size: 500_000_000),
+            LargeFile(path: URL(fileURLWithPath: "/tmp/huge.iso"), size: 1_000_000_000),
+        ])
+        let vm = LargeFilesViewModel(scanner: mockScanner)
+
+        vm.startScan()
+        await TestSupport.awaitCondition { vm.state == .results }
+
+        #expect(vm.files.count == 2)
+        #expect(vm.totalSize == 1_500_000_000)
+    }
+
     @Test func resetClearsState() async {
         let vm = await LargeFilesViewModel()
         await MainActor.run {
