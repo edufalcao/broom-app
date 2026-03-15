@@ -102,7 +102,8 @@ class ScanViewModel {
                                     name: "\(orphan.appName) — \(location.name)",
                                     size: location.size,
                                     modifiedDate: location.modifiedDate,
-                                    isSelected: false
+                                    isSelected: false,
+                                    confidence: orphan.confidence
                                 )
                             }
                         }

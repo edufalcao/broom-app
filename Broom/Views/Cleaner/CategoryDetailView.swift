@@ -65,8 +65,13 @@ struct CategoryDetailView: View {
                                 .toggleStyle(.checkbox)
 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.name)
-                                        .lineLimit(1)
+                                    HStack(spacing: 6) {
+                                        Text(item.name)
+                                            .lineLimit(1)
+                                        if let confidence = item.confidence {
+                                            ConfidenceBadge(confidence: confidence)
+                                        }
+                                    }
                                     Text(item.path.path)
                                         .font(.caption)
                                         .foregroundStyle(.tertiary)

@@ -7,6 +7,7 @@ struct CleanableItem: Identifiable, Hashable {
     let size: Int64
     let modifiedDate: Date
     var isSelected: Bool
+    let confidence: OrphanConfidence?
 
     var isDirectory: Bool { path.hasDirectoryPath }
     var formattedSize: String { SizeFormatter.format(size) }
@@ -17,7 +18,8 @@ struct CleanableItem: Identifiable, Hashable {
         name: String? = nil,
         size: Int64,
         modifiedDate: Date = Date(),
-        isSelected: Bool = true
+        isSelected: Bool = true,
+        confidence: OrphanConfidence? = nil
     ) {
         self.id = id
         self.path = path
@@ -25,5 +27,6 @@ struct CleanableItem: Identifiable, Hashable {
         self.size = size
         self.modifiedDate = modifiedDate
         self.isSelected = isSelected
+        self.confidence = confidence
     }
 }
