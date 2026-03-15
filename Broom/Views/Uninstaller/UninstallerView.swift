@@ -122,7 +122,7 @@ struct UninstallerView: View {
                         if let app { viewModel.selectApp(app) }
                     }
                 )) { app in
-                    AppRowView(app: app)
+                    AppRowView(app: app, sortOrder: viewModel.sortOrder)
                         .tag(app)
                 }
                 .listStyle(.sidebar)

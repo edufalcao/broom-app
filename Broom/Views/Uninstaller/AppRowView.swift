@@ -2,6 +2,21 @@ import SwiftUI
 
 struct AppRowView: View {
     let app: InstalledApp
+    var sortOrder: UninstallerViewModel.SortOrder = .name
+
+    private var secondaryText: String {
+        switch sortOrder {
+        case .lastUsed:
+            if let date = app.lastUsedDate {
+                let formatter = RelativeDateTimeFormatter()
+                formatter.unitsStyle = .abbreviated
+                return formatter.localizedString(for: date, relativeTo: Date())
+            }
+            return "Unknown"
+        case .name, .size:
+            return app.formattedTotalSize
+        }
+    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -20,7 +35,7 @@ struct AppRowView: View {
 
             Spacer()
 
-            Text(app.formattedTotalSize)
+            Text(secondaryText)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
