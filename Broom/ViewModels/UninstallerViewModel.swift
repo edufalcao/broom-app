@@ -78,6 +78,16 @@ class UninstallerViewModel {
         }
     }
 
+    func reloadApps() {
+        selectedApp = nil
+        state = .loading
+        loadTask = Task {
+            let loaded = await appInventory.loadAllApps()
+            apps = loaded
+            state = .ready
+        }
+    }
+
     func selectApp(_ app: InstalledApp) {
         Task {
             let files = await appInventory.findAssociatedFiles(

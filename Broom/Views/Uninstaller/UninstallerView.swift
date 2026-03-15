@@ -126,6 +126,20 @@ struct UninstallerView: View {
                         .tag(app)
                 }
                 .listStyle(.sidebar)
+
+                Divider()
+
+                HStack {
+                    Button {
+                        viewModel.reloadApps()
+                    } label: {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                .padding(8)
             }
             .frame(minWidth: 220, idealWidth: 260, maxWidth: 320)
 
