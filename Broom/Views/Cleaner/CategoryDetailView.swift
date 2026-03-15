@@ -14,7 +14,12 @@ struct CategoryDetailView: View {
             // Header
             HStack {
                 Button(action: onBack) {
-                    Label(category.name, systemImage: "chevron.left")
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.body.weight(.medium))
+                        Text(category.name)
+                    }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
