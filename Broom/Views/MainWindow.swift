@@ -17,25 +17,26 @@ struct MainWindow: View {
         }
     }
 
+    private func isSectionBusy(_ section: SidebarSection) -> Bool {
+        switch section {
+        case .cleaner: return scanViewModel.state.isBusy
+        case .uninstaller: return uninstallerViewModel.state == .loading
+        }
+    }
+
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedSection) {
                 ForEach(SidebarSection.allCases, id: \.self) { section in
-                    Label(section.rawValue, systemImage: section.icon)
-                        .tag(section)
-                        .opacity(scanViewModel.state.isBusy ? 0.4 : 1.0)
-                }
-
-                if scanViewModel.state.isBusy {
-                    Section {
-                        HStack(spacing: 8) {
+                    HStack {
+                        Label(section.rawValue, systemImage: section.icon)
+                        if isSectionBusy(section) {
+                            Spacer()
                             ProgressView()
                                 .controlSize(.small)
-                            Text("Working...")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
                         }
                     }
+                    .tag(section)
                 }
             }
             .listStyle(.sidebar)
