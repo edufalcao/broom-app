@@ -1,18 +1,35 @@
 import Foundation
 
-actor OrphanDetector {
-    private let fileManager = FileManager.default
-    private let appInventory: AppInventory
+struct OrphanDetectorLocations {
+    let librarySubdirectories: [URL]
 
-    init(appInventory: AppInventory) {
+    static let live = OrphanDetectorLocations(librarySubdirectories: Constants.librarySubdirectories)
+}
+
+actor OrphanDetector: OrphanDetecting {
+    private let fileManager: FileManager
+    private let appInventory: AppInventoryServing
+    private let locations: OrphanDetectorLocations
+    private let preferencesProvider: @Sendable () -> AppPreferences
+
+    init(
+        appInventory: AppInventoryServing,
+        fileManager: FileManager = .default,
+        locations: OrphanDetectorLocations = .live,
+        preferencesProvider: @escaping @Sendable () -> AppPreferences = { AppPreferences() }
+    ) {
         self.appInventory = appInventory
+        self.fileManager = fileManager
+        self.locations = locations
+        self.preferencesProvider = preferencesProvider
     }
 
     func detectOrphans() async -> [OrphanedApp] {
         let installedIDs = await appInventory.installedBundleIdentifiers()
+        let preferences = preferencesProvider()
         var orphanMap: [String: [CleanableItem]] = [:]
 
-        for dir in Constants.librarySubdirectories {
+        for dir in locations.librarySubdirectories {
             guard let contents = try? fileManager.contentsOfDirectory(
                 at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
             ) else { continue }
@@ -21,7 +38,7 @@ actor OrphanDetector {
                 let name = entry.lastPathComponent
 
                 // Skip protected entries
-                if ExclusionList.isExcluded(entry) { continue }
+                if ExclusionList.isExcluded(entry, userEntries: preferences.safeListEntries) { continue }
 
                 // Skip if matches an installed app
                 if BundleIDMatcher.matches(directoryName: name, againstInstalled: installedIDs) { continue }

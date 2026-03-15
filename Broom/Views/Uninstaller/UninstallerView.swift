@@ -4,6 +4,18 @@ import UniformTypeIdentifiers
 struct UninstallerView: View {
     @Bindable var viewModel: UninstallerViewModel
 
+    private var listPaneBackground: Color {
+        Color(nsColor: .controlBackgroundColor)
+    }
+
+    private var detailPaneBackground: Color {
+        Color(nsColor: .windowBackgroundColor)
+    }
+
+    private var paneSeparator: Color {
+        Color(nsColor: .separatorColor).opacity(0.9)
+    }
+
     var body: some View {
         Group {
             switch viewModel.state {
@@ -32,7 +44,7 @@ struct UninstallerView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            case .done(let freed, let cleaned, let failed):
+            case .done(let freed, _, let failed):
                 VStack(spacing: 16) {
                     Spacer()
                     Image(systemName: "checkmark.circle.fill")
@@ -52,19 +64,14 @@ struct UninstallerView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .confirmationDialog(
-            "Uninstall \(viewModel.uninstallPlan?.app.name ?? "")?",
-            isPresented: $viewModel.showUninstallConfirmation
-        ) {
-            Button("Uninstall", role: .destructive) {
-                viewModel.confirmUninstall()
-            }
-            Button("Cancel", role: .cancel) {
-                viewModel.cancelUninstall()
-            }
-        } message: {
+        .sheet(isPresented: $viewModel.showUninstallConfirmation) {
             if let plan = viewModel.uninstallPlan {
-                Text("This will remove \(plan.filesToRemove.count) files totaling \(SizeFormatter.format(plan.totalSize)). Files will be moved to Trash.")
+                UninstallConfirmView(
+                    plan: plan,
+                    moveToTrash: $viewModel.moveToTrashForUninstall,
+                    onConfirm: { viewModel.confirmUninstall() },
+                    onCancel: { viewModel.cancelUninstall() }
+                )
             }
         }
         .alert(
@@ -116,16 +123,27 @@ struct UninstallerView: View {
                 Divider()
 
                 // List
-                List(viewModel.filteredApps, selection: Binding(
-                    get: { viewModel.selectedApp },
-                    set: { app in
-                        if let app { viewModel.selectApp(app) }
+                if viewModel.filteredApps.isEmpty {
+                    EmptyStateView(
+                        icon: "shippingbox",
+                        title: "No apps found",
+                        subtitle: "Drop an app here to open its uninstall preview."
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List(viewModel.filteredApps, selection: Binding(
+                        get: { viewModel.selectedApp },
+                        set: { app in
+                            if let app { viewModel.selectApp(app) }
+                        }
+                    )) { app in
+                        AppRowView(app: app, sortOrder: viewModel.sortOrder)
+                            .tag(app)
                     }
-                )) { app in
-                    AppRowView(app: app, sortOrder: viewModel.sortOrder)
-                        .tag(app)
+                    .listStyle(.sidebar)
+                    .scrollContentBackground(.hidden)
+                    .background(listPaneBackground)
                 }
-                .listStyle(.sidebar)
 
                 Divider()
 
@@ -142,35 +160,41 @@ struct UninstallerView: View {
                 .padding(8)
             }
             .frame(minWidth: 220, idealWidth: 260, maxWidth: 320)
-            .background(Color(nsColor: .controlBackgroundColor))
+            .background(listPaneBackground)
             .overlay(alignment: .trailing) {
                 Rectangle()
-                    .fill(Color.gray.opacity(0.4))
+                    .fill(paneSeparator)
                     .frame(width: 1)
             }
 
             // Right: Detail
-            if let app = viewModel.selectedApp {
-                AppDetailView(
-                    app: app,
-                    onUninstall: { viewModel.prepareUninstall() }
-                )
-            } else {
-                VStack(spacing: 12) {
-                    Image(systemName: "shippingbox")
-                        .font(.system(size: 36))
-                        .foregroundStyle(.tertiary)
-                    Text("Select an app to view details")
-                        .foregroundStyle(.secondary)
-                    Text("or drop a .app here to uninstall")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                    handleDrop(providers)
+            Group {
+                if let app = viewModel.selectedApp {
+                    AppDetailView(
+                        app: app,
+                        onToggleBundle: { viewModel.toggleBundleSelection() },
+                        onToggleAssociatedFile: { viewModel.toggleAssociatedFile($0) },
+                        onUninstall: { viewModel.prepareUninstall() }
+                    )
+                } else {
+                    VStack(spacing: 12) {
+                        Image(systemName: "shippingbox")
+                            .font(.system(size: 36))
+                            .foregroundStyle(.tertiary)
+                        Text("Select an app to view details")
+                            .foregroundStyle(.secondary)
+                        Text("or drop a .app here to uninstall")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
+            .background(detailPaneBackground)
+        }
+        .background(detailPaneBackground)
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            handleDrop(providers)
         }
     }
 

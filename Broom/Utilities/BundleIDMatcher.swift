@@ -38,6 +38,12 @@ enum BundleIDMatcher {
         // Try to extract a human-readable name from a bundle ID or directory name
         let parts = directoryName.split(separator: ".")
         if parts.count >= 3 {
+            if let lastPart = parts.last,
+               lastPart.lowercased() == "savedstate",
+               parts.count >= 4
+            {
+                return String(parts[parts.count - 2])
+            }
             // Looks like a bundle ID: com.company.AppName -> AppName
             return String(parts.last!)
         }

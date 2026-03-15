@@ -8,28 +8,34 @@ struct UninstallPlan {
     let totalSize: Int64
     let isRunning: Bool
     let isProtected: Bool
+
+    var selectedCount: Int { filesToRemove.count }
 }
 
-actor AppUninstaller {
-    private let appInventory: AppInventory
+actor AppUninstaller: AppUninstalling {
+    private let appInventory: AppInventoryServing
 
-    init(appInventory: AppInventory) {
+    init(appInventory: AppInventoryServing) {
         self.appInventory = appInventory
     }
 
     func prepareUninstall(app: InstalledApp) async -> UninstallPlan {
-        var files = await appInventory.findAssociatedFiles(
-            for: app.bundleIdentifier,
-            appName: app.name
-        )
+        var files = app.associatedFiles.filter(\.isSelected)
+        if files.isEmpty && !app.associatedFilesLoaded {
+            files = await appInventory.findAssociatedFiles(
+                for: app.bundleIdentifier,
+                appName: app.name
+            )
+        }
 
-        // Add the .app bundle itself as the last item
-        let bundleItem = CleanableItem(
-            path: app.bundlePath,
-            name: "\(app.name).app",
-            size: app.bundleSize
-        )
-        files.append(bundleItem)
+        if app.bundleIsSelected {
+            let bundleItem = CleanableItem(
+                path: app.bundlePath,
+                name: "\(app.name).app",
+                size: app.bundleSize
+            )
+            files.append(bundleItem)
+        }
 
         let totalSize = files.reduce(0) { $0 + $1.size }
         let isRunning = RunningAppDetector.isRunning(bundleIdentifier: app.bundleIdentifier)
@@ -53,14 +59,13 @@ actor AppUninstaller {
                 var errors: [CleanError] = []
 
                 // Remove Library files first, .app bundle last
-                let sorted = plan.filesToRemove.sorted { a, _ in
-                    !a.path.pathExtension.lowercased().contains("app")
-                }
+                let sorted = plan.filesToRemove.filter { $0.path.pathExtension.lowercased() != "app" } +
+                    plan.filesToRemove.filter { $0.path.pathExtension.lowercased() == "app" }
                 let total = sorted.count
 
                 for (index, item) in sorted.enumerated() {
                     continuation.yield(.progress(
-                        current: index,
+                        current: index + 1,
                         total: total,
                         currentPath: item.name
                     ))

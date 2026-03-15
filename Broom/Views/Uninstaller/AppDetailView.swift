@@ -2,6 +2,8 @@ import SwiftUI
 
 struct AppDetailView: View {
     let app: InstalledApp
+    let onToggleBundle: () -> Void
+    let onToggleAssociatedFile: (UUID) -> Void
     let onUninstall: () -> Void
 
     var body: some View {
@@ -34,7 +36,7 @@ struct AppDetailView: View {
             Divider()
 
             // Associated files
-            if app.associatedFiles.isEmpty {
+            if !app.associatedFilesLoaded {
                 VStack(spacing: 8) {
                     Spacer()
                     Text("Loading associated files...")
@@ -47,6 +49,14 @@ struct AppDetailView: View {
                     LazyVStack(spacing: 0) {
                         // The .app bundle
                         HStack {
+                            Toggle(isOn: Binding(
+                                get: { app.bundleIsSelected },
+                                set: { _ in onToggleBundle() }
+                            )) {
+                                EmptyView()
+                            }
+                            .toggleStyle(.checkbox)
+
                             Image(systemName: "app.fill")
                                 .frame(width: 20)
                                 .foregroundStyle(.secondary)
@@ -59,20 +69,45 @@ struct AppDetailView: View {
 
                         Divider().padding(.leading, 40)
 
-                        ForEach(app.associatedFiles) { file in
+                        if app.associatedFiles.isEmpty {
                             HStack {
-                                Image(systemName: "folder.fill")
-                                    .frame(width: 20)
+                                Text("No additional support files found")
                                     .foregroundStyle(.secondary)
-                                Text(file.name)
-                                    .lineLimit(1)
                                 Spacer()
-                                SizeLabel(bytes: file.size)
                             }
                             .padding(.horizontal)
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 8)
+                        } else {
+                            ForEach(app.associatedFiles) { file in
+                                HStack {
+                                    Toggle(isOn: Binding(
+                                        get: { file.isSelected },
+                                        set: { _ in onToggleAssociatedFile(file.id) }
+                                    )) {
+                                        EmptyView()
+                                    }
+                                    .toggleStyle(.checkbox)
 
-                            Divider().padding(.leading, 40)
+                                    Image(systemName: "folder.fill")
+                                        .frame(width: 20)
+                                        .foregroundStyle(.secondary)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(file.name)
+                                            .lineLimit(1)
+                                        Text(file.path.path)
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                            .lineLimit(1)
+                                            .truncationMode(.head)
+                                    }
+                                    Spacer()
+                                    SizeLabel(bytes: file.size)
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 4)
+
+                                Divider().padding(.leading, 40)
+                            }
                         }
                     }
                     .padding(.vertical, 4)
@@ -83,7 +118,7 @@ struct AppDetailView: View {
 
             // Footer
             HStack {
-                Text("Total: \(app.formattedTotalSize)")
+                Text("Selected: \(app.formattedSelectedSize)")
                     .font(.subheadline.bold())
 
                 Spacer()
@@ -99,6 +134,7 @@ struct AppDetailView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.red)
+                    .disabled(app.selectedItemCount == 0)
                 }
             }
             .padding()

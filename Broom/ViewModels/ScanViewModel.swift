@@ -39,12 +39,35 @@ class ScanViewModel {
 
     var selectedSize: Int64 { scanResult?.selectedSize ?? 0 }
     var selectedItems: Int { scanResult?.selectedItems ?? 0 }
+    var confirmationSize: Int64 { pendingCleanItems.reduce(0) { $0 + $1.size } }
+    var confirmationItems: Int { pendingCleanItems.count }
 
     var showCleanConfirmation = false
+    var showRunningAppsAlert = false
+    var runningAppsInSelection: [String] = []
 
-    private let scanner = FileScanner()
-    private let cleaner = FileCleaner()
+    private let scanner: ScanServing
+    private let cleaner: CleanServing
+    private let orphanDetector: OrphanDetecting
+    private let preferencesProvider: () -> AppPreferences
     private var scanTask: Task<Void, Never>?
+    private var pendingCleanItems: [CleanableItem] = []
+
+    init(
+        scanner: ScanServing = FileScanner(),
+        cleaner: CleanServing = FileCleaner(),
+        orphanDetector: OrphanDetecting? = nil,
+        preferencesProvider: @escaping @Sendable () -> AppPreferences = { AppPreferences() }
+    ) {
+        self.scanner = scanner
+        self.cleaner = cleaner
+        let inventory = AppInventory()
+        self.orphanDetector = orphanDetector ?? OrphanDetector(
+            appInventory: inventory,
+            preferencesProvider: preferencesProvider
+        )
+        self.preferencesProvider = preferencesProvider
+    }
 
     // MARK: - Scan
 
@@ -60,10 +83,18 @@ class ScanViewModel {
                 case .scanning(let category, let pct, let found):
                     self.state = .scanning(progress: pct, currentCategory: category, foundSoFar: found)
                 case .complete(let result):
-                    self.scanResult = result
+                    self.state = .scanning(
+                        progress: 0.95,
+                        currentCategory: "App Leftovers",
+                        foundSoFar: result.totalSize
+                    )
+                    let orphans = await orphanDetector.detectOrphans()
+                    var completedResult = result
+                    completedResult.orphanedApps = orphans
+                    self.scanResult = completedResult
                     self.state = .results
                     UserDefaults.standard.set(Date(), forKey: "lastScanDate")
-                    NotificationManager.sendScanComplete(totalSize: result.totalSize)
+                    NotificationManager.sendScanComplete(totalSize: completedResult.totalSize)
                 }
             }
         }
@@ -154,26 +185,54 @@ class ScanViewModel {
     // MARK: - Clean
 
     func startClean() {
+        let selectedItems = selectedCleanItems()
+        guard !selectedItems.isEmpty else { return }
+
+        let preferences = preferencesProvider()
+        let runningApps = RunningAppDetector.matchingApplications(for: selectedItems)
+
+        pendingCleanItems = selectedItems
+        runningAppsInSelection = runningApps.map {
+            $0.localizedName.isEmpty ? $0.bundleIdentifier : $0.localizedName.capitalized
+        }
+
+        if preferences.skipRunningApps, !runningAppsInSelection.isEmpty {
+            showRunningAppsAlert = true
+        } else {
+            showCleanConfirmation = true
+        }
+    }
+
+    func skipRunningAppsAndConfirm() {
+        let runningApps = RunningAppDetector.matchingApplications(for: pendingCleanItems)
+        let filtered = pendingCleanItems.filter { item in
+            !runningApps.contains { RunningAppDetector.matches(item: item, runningApplication: $0) }
+        }
+
+        pendingCleanItems = filtered
+        runningAppsInSelection = []
+        showRunningAppsAlert = false
+
+        guard !filtered.isEmpty else { return }
+        showCleanConfirmation = true
+    }
+
+    func cleanRunningAppsAnyway() {
+        showRunningAppsAlert = false
         showCleanConfirmation = true
     }
 
     func confirmClean() {
-        guard let result = scanResult else { return }
-
-        var selectedItems: [CleanableItem] = []
-        for category in result.categories {
-            selectedItems.append(contentsOf: category.items.filter(\.isSelected))
-        }
-        for orphan in result.orphanedApps {
-            selectedItems.append(contentsOf: orphan.locations.filter(\.isSelected))
-        }
+        let selectedItems = pendingCleanItems.isEmpty ? selectedCleanItems() : pendingCleanItems
 
         guard !selectedItems.isEmpty else { return }
+        let preferences = preferencesProvider()
+        let moveToTrash = preferences.moveToTrash
 
         scanTask = Task {
             state = .cleaning(progress: 0, currentItem: "", cleanedCount: 0, totalCount: selectedItems.count)
 
-            for await progress in cleaner.clean(items: selectedItems) {
+            for await progress in cleaner.clean(items: selectedItems, moveToTrash: moveToTrash) {
                 if Task.isCancelled { break }
 
                 switch progress {
@@ -187,15 +246,33 @@ class ScanViewModel {
                         itemsFailed: report.itemsFailed
                     )
                     NotificationManager.sendCleanComplete(freedBytes: report.freedBytes)
+                    pendingCleanItems = []
                 }
             }
         }
+    }
+
+    private func selectedCleanItems() -> [CleanableItem] {
+        guard let result = scanResult else { return [] }
+
+        var selectedItems: [CleanableItem] = []
+        for category in result.categories {
+            selectedItems.append(contentsOf: category.items.filter(\.isSelected))
+        }
+        for orphan in result.orphanedApps {
+            selectedItems.append(contentsOf: orphan.locations.filter(\.isSelected))
+        }
+        return selectedItems
     }
 
     // MARK: - Reset
 
     func reset() {
         scanResult = nil
+        pendingCleanItems = []
+        runningAppsInSelection = []
+        showCleanConfirmation = false
+        showRunningAppsAlert = false
         state = .idle
     }
 }

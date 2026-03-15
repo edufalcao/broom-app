@@ -1,32 +1,15 @@
 import AppKit
 import Foundation
 
-actor AppInventory {
-    private let fileManager = FileManager.default
+struct AppInventoryLocations {
+    let applicationDirectories: [URL]
+    let librarySearchDirectories: [(String, URL)]
+    let preferencesDirectory: URL
+    let launchAgentDirectories: [(String, URL)]
 
-    // MARK: - Installed Apps
-
-    func loadAllApps() async -> [InstalledApp] {
-        var apps: [InstalledApp] = []
-
-        for dir in Constants.applicationDirectories {
-            apps.append(contentsOf: enumerateApps(in: dir))
-        }
-
-        return apps.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
-
-    func installedBundleIdentifiers() async -> Set<String> {
-        let apps = await loadAllApps()
-        return Set(apps.map { $0.bundleIdentifier.lowercased() })
-    }
-
-    func findAssociatedFiles(for bundleID: String, appName: String) async -> [CleanableItem] {
-        var items: [CleanableItem] = []
-        let lowerBundleID = bundleID.lowercased()
-        let lowerName = appName.lowercased()
-
-        let searchDirs: [(String, URL)] = [
+    static let live = AppInventoryLocations(
+        applicationDirectories: Constants.applicationDirectories,
+        librarySearchDirectories: [
             ("Application Support", Constants.library.appendingPathComponent("Application Support")),
             ("Caches", Constants.userCaches),
             ("Containers", Constants.library.appendingPathComponent("Containers")),
@@ -35,16 +18,88 @@ actor AppInventory {
             ("WebKit", Constants.library.appendingPathComponent("WebKit")),
             ("HTTPStorages", Constants.library.appendingPathComponent("HTTPStorages")),
             ("Logs", Constants.userLogs),
+        ],
+        preferencesDirectory: Constants.library.appendingPathComponent("Preferences"),
+        launchAgentDirectories: [
+            ("Launch Agents", Constants.userLaunchAgents),
+            ("Launch Agents", Constants.systemLaunchAgents),
+            ("Launch Daemons", Constants.systemLaunchDaemons),
         ]
+    )
+}
 
-        for (label, dir) in searchDirs {
+actor AppInventory: AppInventoryServing {
+    private let fileManager = FileManager.default
+    private let locations: AppInventoryLocations
+
+    init(locations: AppInventoryLocations = .live) {
+        self.locations = locations
+    }
+
+    // MARK: - Installed Apps
+
+    func loadAllApps() async -> [InstalledApp] {
+        var apps: [InstalledApp] = []
+
+        for dir in locations.applicationDirectories {
+            apps.append(contentsOf: enumerateApps(in: dir))
+        }
+
+        var enrichedApps: [InstalledApp] = []
+        for var app in apps {
+            app.associatedFiles = await findAssociatedFiles(
+                for: app.bundleIdentifier,
+                appName: app.name
+            )
+            app.associatedFilesLoaded = true
+            enrichedApps.append(app)
+        }
+
+        return enrichedApps.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+    }
+
+    func installedBundleIdentifiers() async -> Set<String> {
+        var ids: Set<String> = []
+
+        for dir in locations.applicationDirectories {
+            let apps = enumerateApps(in: dir)
+            ids.formUnion(apps.map { $0.bundleIdentifier.lowercased() })
+        }
+
+        return ids
+    }
+
+    func loadApp(at url: URL) async -> InstalledApp? {
+        guard var app = parseApp(at: url) else { return nil }
+        app.associatedFiles = await findAssociatedFiles(
+            for: app.bundleIdentifier,
+            appName: app.name
+        )
+        app.associatedFilesLoaded = true
+        return app
+    }
+
+    func findAssociatedFiles(for bundleID: String, appName: String) async -> [CleanableItem] {
+        var items: [CleanableItem] = []
+        let lowerBundleID = bundleID.lowercased()
+        let lowerName = appName.lowercased()
+        let organizationTokens = Self.organizationTokens(for: lowerBundleID)
+
+        for (label, dir) in locations.librarySearchDirectories {
             guard let contents = try? fileManager.contentsOfDirectory(
                 at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
             ) else { continue }
 
             for entry in contents {
                 let name = entry.lastPathComponent.lowercased()
-                if name.contains(lowerBundleID) || name.contains(lowerName) {
+                if Self.matches(
+                    entryName: name,
+                    bundleID: lowerBundleID,
+                    appName: lowerName,
+                    organizationTokens: organizationTokens
+                ) {
                     let size = directorySize(at: entry)
                     if size > 0 {
                         items.append(CleanableItem(
@@ -58,13 +113,19 @@ actor AppInventory {
         }
 
         // Preferences plists
-        let prefsDir = Constants.library.appendingPathComponent("Preferences")
         if let contents = try? fileManager.contentsOfDirectory(
-            at: prefsDir, includingPropertiesForKeys: [.fileSizeKey], options: []
+            at: locations.preferencesDirectory,
+            includingPropertiesForKeys: [.fileSizeKey],
+            options: [.skipsHiddenFiles]
         ) {
             for entry in contents where entry.pathExtension == "plist" {
                 let name = entry.deletingPathExtension().lastPathComponent.lowercased()
-                if name.contains(lowerBundleID) || name.contains(lowerName) {
+                if Self.matches(
+                    entryName: name,
+                    bundleID: lowerBundleID,
+                    appName: lowerName,
+                    organizationTokens: organizationTokens
+                ) {
                     let size = Int64((try? entry.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
                     if size > 0 {
                         items.append(CleanableItem(
@@ -77,7 +138,17 @@ actor AppInventory {
             }
         }
 
-        return items
+        for (label, dir) in locations.launchAgentDirectories {
+            items.append(contentsOf: matchingLaunchItems(
+                in: dir,
+                label: label,
+                bundleID: lowerBundleID,
+                appName: lowerName,
+                organizationTokens: organizationTokens
+            ))
+        }
+
+        return items.sorted { $0.size > $1.size }
     }
 
     func appLastUsedDate(at url: URL) -> Date? {
@@ -144,11 +215,19 @@ actor AppInventory {
             icon: icon,
             isSystemApp: isSystemApp,
             isAppleApp: isAppleApp,
+            associatedFilesLoaded: false,
             lastUsedDate: lastUsed
         )
     }
 
     private func directorySize(at url: URL) -> Int64 {
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else { return 0 }
+
+        if !isDirectory.boolValue {
+            return Int64((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
+        }
+
         var totalSize: Int64 = 0
         guard let enumerator = fileManager.enumerator(
             at: url,
@@ -165,5 +244,109 @@ actor AppInventory {
             }
         }
         return totalSize
+    }
+
+    private func matchingLaunchItems(
+        in directory: URL,
+        label: String,
+        bundleID: String,
+        appName: String,
+        organizationTokens: Set<String>
+    ) -> [CleanableItem] {
+        guard let contents = try? fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.fileSizeKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        return contents.compactMap { entry in
+            let name = entry.lastPathComponent.lowercased()
+            let matchesName = Self.matches(
+                entryName: name,
+                bundleID: bundleID,
+                appName: appName,
+                organizationTokens: organizationTokens
+            )
+            let matchesPlist = plistContainsMatch(
+                at: entry,
+                bundleID: bundleID,
+                appName: appName,
+                organizationTokens: organizationTokens
+            )
+
+            guard matchesName || matchesPlist else { return nil }
+
+            let size = directorySize(at: entry)
+            guard size > 0 else { return nil }
+
+            return CleanableItem(
+                path: entry,
+                name: "\(label)/\(entry.lastPathComponent)",
+                size: size
+            )
+        }
+    }
+
+    private func plistContainsMatch(
+        at url: URL,
+        bundleID: String,
+        appName: String,
+        organizationTokens: Set<String>
+    ) -> Bool {
+        guard let data = try? Data(contentsOf: url),
+              let propertyList = try? PropertyListSerialization.propertyList(from: data, format: nil)
+        else {
+            return false
+        }
+
+        return Self.stringValues(in: propertyList).contains { value in
+            Self.matches(
+                entryName: value.lowercased(),
+                bundleID: bundleID,
+                appName: appName,
+                organizationTokens: organizationTokens
+            )
+        }
+    }
+
+    private static func matches(
+        entryName: String,
+        bundleID: String,
+        appName: String,
+        organizationTokens: Set<String>
+    ) -> Bool {
+        if entryName.contains(bundleID) || entryName.contains(appName) {
+            return true
+        }
+
+        return organizationTokens.contains { token in
+            token.count >= 3 && entryName.contains(token)
+        }
+    }
+
+    private static func organizationTokens(for bundleID: String) -> Set<String> {
+        let parts = bundleID.split(separator: ".").map(String.init)
+        let middleParts = parts.dropFirst().dropLast()
+
+        var tokens = Set(middleParts.map { $0.lowercased() })
+        if parts.count >= 2 {
+            tokens.insert(parts[1].lowercased())
+        }
+        return tokens.filter { $0.count >= 3 }
+    }
+
+    private static func stringValues(in propertyList: Any) -> [String] {
+        switch propertyList {
+        case let string as String:
+            return [string]
+        case let array as [Any]:
+            return array.flatMap(stringValues(in:))
+        case let dictionary as [String: Any]:
+            return dictionary.values.flatMap(stringValues(in:))
+        default:
+            return []
+        }
     }
 }

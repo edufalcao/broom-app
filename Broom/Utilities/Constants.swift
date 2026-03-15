@@ -89,6 +89,8 @@ enum Constants {
 
     static let protectedBundleIDPrefixes: Set<String> = [
         "com.apple.",
+        "com.electron.",
+        "org.chromium.",
     ]
 
     // MARK: - System-Critical Caches (never delete)
@@ -111,4 +113,7 @@ enum Constants {
     ]
 
     static let systemApplicationsDirectory = URL(fileURLWithPath: "/System/Applications")
+    static let userLaunchAgents = library.appendingPathComponent("LaunchAgents")
+    static let systemLaunchAgents = URL(fileURLWithPath: "/Library/LaunchAgents")
+    static let systemLaunchDaemons = URL(fileURLWithPath: "/Library/LaunchDaemons")
 }

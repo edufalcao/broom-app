@@ -35,15 +35,23 @@ class UninstallerViewModel {
     var uninstallPlan: UninstallPlan?
     var showUninstallConfirmation = false
     var showRunningAppAlert = false
+    var moveToTrashForUninstall: Bool
 
-    private let appInventory: AppInventory
-    private let appUninstaller: AppUninstaller
+    private let appInventory: AppInventoryServing
+    private let appUninstaller: AppUninstalling
+    private let preferencesProvider: () -> AppPreferences
     private var loadTask: Task<Void, Never>?
 
-    init() {
-        let inventory = AppInventory()
+    init(
+        appInventory: AppInventoryServing? = nil,
+        appUninstaller: AppUninstalling? = nil,
+        preferencesProvider: @escaping () -> AppPreferences = { AppPreferences() }
+    ) {
+        let inventory = appInventory ?? AppInventory()
         self.appInventory = inventory
-        self.appUninstaller = AppUninstaller(appInventory: inventory)
+        self.appUninstaller = appUninstaller ?? AppUninstaller(appInventory: inventory)
+        self.preferencesProvider = preferencesProvider
+        self.moveToTrashForUninstall = preferencesProvider().moveToTrash
     }
 
     var filteredApps: [InstalledApp] {
@@ -90,24 +98,45 @@ class UninstallerViewModel {
 
     func selectApp(_ app: InstalledApp) {
         Task {
-            let files = await appInventory.findAssociatedFiles(
-                for: app.bundleIdentifier, appName: app.name
-            )
             var updatedApp = app
-            updatedApp.associatedFiles = files
+            if !app.associatedFilesLoaded {
+                let files = await appInventory.findAssociatedFiles(
+                    for: app.bundleIdentifier,
+                    appName: app.name
+                )
+                updatedApp.associatedFiles = files
+                updatedApp.associatedFilesLoaded = true
+            }
             selectedApp = updatedApp
 
             if let idx = apps.firstIndex(where: { $0.id == app.id }) {
-                apps[idx].associatedFiles = files
+                apps[idx] = updatedApp
             }
         }
     }
 
-    func prepareUninstall() {
-        guard let app = selectedApp else { return }
+    func toggleBundleSelection() {
+        guard var app = selectedApp else { return }
+        app.bundleIsSelected.toggle()
+        updateSelectedApp(app)
+    }
+
+    func toggleAssociatedFile(_ fileID: UUID) {
+        guard var app = selectedApp,
+              let index = app.associatedFiles.firstIndex(where: { $0.id == fileID })
+        else { return }
+
+        app.associatedFiles[index].isSelected.toggle()
+        updateSelectedApp(app)
+    }
+
+    func prepareUninstall(for app: InstalledApp? = nil) {
+        guard let app = app ?? selectedApp, !app.isProtected else { return }
+        moveToTrashForUninstall = preferencesProvider().moveToTrash
 
         Task {
             let plan = await appUninstaller.prepareUninstall(app: app)
+            guard plan.selectedCount > 0 else { return }
             uninstallPlan = plan
 
             if plan.isRunning {
@@ -132,11 +161,15 @@ class UninstallerViewModel {
 
     func confirmUninstall() {
         guard let plan = uninstallPlan else { return }
+        showUninstallConfirmation = false
 
         Task {
             state = .uninstalling(progress: 0, currentItem: "")
 
-            for await progress in appUninstaller.executeUninstall(plan: plan) {
+            for await progress in appUninstaller.executeUninstall(
+                plan: plan,
+                moveToTrash: moveToTrashForUninstall
+            ) {
                 switch progress {
                 case .progress(let current, let total, let path):
                     let pct = total > 0 ? Double(current) / Double(total) : 0
@@ -163,9 +196,26 @@ class UninstallerViewModel {
     func handleAppDrop(url: URL) {
         guard url.pathExtension == "app" else { return }
 
-        // Find in existing list or parse it
-        if let existing = apps.first(where: { $0.bundlePath == url }) {
-            selectApp(existing)
+        Task {
+            let droppedApp = if let existing = apps.first(where: { $0.bundlePath == url }) {
+                existing
+            } else {
+                await appInventory.loadApp(at: url)
+            }
+
+            guard let droppedApp else { return }
+
+            if let index = apps.firstIndex(where: { $0.bundlePath == droppedApp.bundlePath }) {
+                apps[index] = droppedApp
+            } else {
+                apps.append(droppedApp)
+            }
+
+            selectedApp = droppedApp
+
+            if !droppedApp.isProtected {
+                prepareUninstall(for: droppedApp)
+            }
         }
     }
 
@@ -173,5 +223,13 @@ class UninstallerViewModel {
         showUninstallConfirmation = false
         showRunningAppAlert = false
         uninstallPlan = nil
+        moveToTrashForUninstall = preferencesProvider().moveToTrash
+    }
+
+    private func updateSelectedApp(_ app: InstalledApp) {
+        selectedApp = app
+        if let idx = apps.firstIndex(where: { $0.id == app.id }) {
+            apps[idx] = app
+        }
     }
 }

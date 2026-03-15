@@ -50,15 +50,29 @@ struct CleanerView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .confirmationDialog(
-            "Clean \(viewModel.selectedItems) items?",
+            "Clean \(viewModel.confirmationItems) items?",
             isPresented: $viewModel.showCleanConfirmation
         ) {
-            Button("Clean (\(SizeFormatter.format(viewModel.selectedSize)))", role: .destructive) {
+            Button("Clean (\(SizeFormatter.format(viewModel.confirmationSize)))", role: .destructive) {
                 viewModel.confirmClean()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Files will be moved to Trash. You can recover them from the Trash if needed.")
+            Text("Files will be deleted using your current cleaning preference.")
+        }
+        .alert(
+            "Some selected items belong to running apps",
+            isPresented: $viewModel.showRunningAppsAlert
+        ) {
+            Button("Skip Running Apps") {
+                viewModel.skipRunningAppsAndConfirm()
+            }
+            Button("Clean Anyway", role: .destructive) {
+                viewModel.cleanRunningAppsAnyway()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(viewModel.runningAppsInSelection.joined(separator: ", "))
         }
     }
 }

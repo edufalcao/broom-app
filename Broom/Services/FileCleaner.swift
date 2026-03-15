@@ -1,7 +1,7 @@
 import Foundation
 import os
 
-actor FileCleaner {
+actor FileCleaner: CleanServing {
     nonisolated func clean(items: [CleanableItem], moveToTrash: Bool = true) -> AsyncStream<CleanProgress> {
         AsyncStream { continuation in
             Task {
@@ -16,7 +16,7 @@ actor FileCleaner {
                     if Task.isCancelled { break }
 
                     continuation.yield(.progress(
-                        current: index,
+                        current: index + 1,
                         total: total,
                         currentPath: item.name
                     ))

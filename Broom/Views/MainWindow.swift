@@ -5,6 +5,14 @@ struct MainWindow: View {
     @State private var scanViewModel = ScanViewModel()
     @State private var uninstallerViewModel = UninstallerViewModel()
 
+    private var sidebarBackground: Color {
+        Color(nsColor: .underPageBackgroundColor)
+    }
+
+    private var paneSeparator: Color {
+        Color(nsColor: .separatorColor).opacity(0.9)
+    }
+
     enum SidebarSection: String, CaseIterable, Hashable {
         case cleaner = "Clean"
         case uninstaller = "Apps"
@@ -40,6 +48,13 @@ struct MainWindow: View {
                 }
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .background(sidebarBackground)
+            .overlay(alignment: .trailing) {
+                Rectangle()
+                    .fill(paneSeparator)
+                    .frame(width: 1)
+            }
             .navigationSplitViewColumnWidth(min: 140, ideal: 160, max: 200)
         } detail: {
             switch selectedSection {
@@ -59,6 +74,20 @@ struct MainWindow: View {
             if let url = notification.object as? URL {
                 selectedSection = .uninstaller
                 uninstallerViewModel.handleAppDrop(url: url)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .switchToCleanerSection)) { _ in
+            selectedSection = .cleaner
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .switchToUninstallerSection)) { _ in
+            selectedSection = .uninstaller
+        }
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                SettingsLink {
+                    Image(systemName: "gearshape")
+                }
+                .help("Settings")
             }
         }
         .frame(minWidth: 650, minHeight: 450)

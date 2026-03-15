@@ -3,6 +3,7 @@ import SwiftUI
 struct ScanResultsView: View {
     @Bindable var viewModel: ScanViewModel
     @State private var selectedCategory: CleanCategory?
+    @State private var expandedOrphanIDs: Set<UUID> = []
 
     var body: some View {
         if let selectedCategory {
@@ -69,6 +70,11 @@ struct ScanResultsView: View {
                             ForEach(result.orphanedApps) { orphan in
                                 orphanRow(orphan)
                                     .padding(.horizontal)
+                                if expandedOrphanIDs.contains(orphan.id) {
+                                    orphanLocations(orphan)
+                                        .padding(.horizontal)
+                                        .padding(.bottom, 8)
+                                }
                                 Divider().padding(.leading, 52)
                             }
                         }
@@ -130,7 +136,58 @@ struct ScanResultsView: View {
             Spacer()
 
             SizeLabel(bytes: orphan.totalSize)
+
+            Image(systemName: expandedOrphanIDs.contains(orphan.id) ? "chevron.down" : "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if expandedOrphanIDs.contains(orphan.id) {
+                expandedOrphanIDs.remove(orphan.id)
+            } else {
+                expandedOrphanIDs.insert(orphan.id)
+            }
+        }
+    }
+
+    private func orphanLocations(_ orphan: OrphanedApp) -> some View {
+        VStack(spacing: 0) {
+            ForEach(orphan.locations) { location in
+                HStack(spacing: 12) {
+                    Toggle(isOn: Binding(
+                        get: { location.isSelected },
+                        set: { _ in viewModel.toggleOrphanLocation(location.id, in: orphan.id) }
+                    )) {
+                        EmptyView()
+                    }
+                    .toggleStyle(.checkbox)
+
+                    Image(systemName: "folder")
+                        .frame(width: 20)
+                        .foregroundStyle(.secondary)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(location.name)
+                            .lineLimit(1)
+                        Text(location.path.path)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .truncationMode(.head)
+                    }
+
+                    Spacer()
+
+                    SizeLabel(bytes: location.size)
+                }
+                .padding(.vertical, 4)
+
+                if location.id != orphan.locations.last?.id {
+                    Divider().padding(.leading, 40)
+                }
+            }
+        }
     }
 }

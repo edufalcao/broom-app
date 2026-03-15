@@ -17,6 +17,18 @@ struct BroomApp: App {
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
             }
+
+            CommandGroup(after: .sidebar) {
+                Button("System Cleaner") {
+                    NotificationCenter.default.post(name: .switchToCleanerSection, object: nil)
+                }
+                .keyboardShortcut("1", modifiers: [.command])
+
+                Button("App Uninstaller") {
+                    NotificationCenter.default.post(name: .switchToUninstallerSection, object: nil)
+                }
+                .keyboardShortcut("2", modifiers: [.command])
+            }
         }
 
         Settings {
@@ -41,4 +53,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 extension Notification.Name {
     static let startScan = Notification.Name("com.broom.startScan")
     static let appDroppedOnDock = Notification.Name("com.broom.appDroppedOnDock")
+    static let switchToCleanerSection = Notification.Name("com.broom.switchToCleanerSection")
+    static let switchToUninstallerSection = Notification.Name("com.broom.switchToUninstallerSection")
 }
