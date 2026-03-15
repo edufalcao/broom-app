@@ -32,21 +32,20 @@ struct CleanCategoryTests {
 
 @Suite("ScanResult")
 struct ScanResultTests {
-    @Test func totalSizeAggregatesCategoriesAndOrphans() {
+    @Test func totalSizeAggregatesCategories() {
         let categories = [
             CleanCategory(
                 name: "Caches", icon: "folder", description: "",
                 items: [CleanableItem(path: URL(fileURLWithPath: "/tmp/a"), size: 1000)]
             ),
-        ]
-        let orphans = [
-            OrphanedApp(
-                appName: "OldApp", confidence: .high,
-                locations: [CleanableItem(path: URL(fileURLWithPath: "/tmp/b"), size: 500)]
+            CleanCategory(
+                name: "App Leftovers", icon: "archivebox", description: "",
+                items: [CleanableItem(path: URL(fileURLWithPath: "/tmp/b"), size: 500)],
+                defaultSelected: false
             ),
         ]
         let result = ScanResult(
-            categories: categories, orphanedApps: orphans,
+            categories: categories, orphanedApps: [],
             scanDuration: 1.0, scanDate: Date()
         )
         #expect(result.totalSize == 1500)

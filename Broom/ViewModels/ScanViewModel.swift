@@ -91,6 +91,31 @@ class ScanViewModel {
                     )
                     let orphans = await orphanDetector.detectOrphans()
                     var completedResult = result
+
+                    // Convert orphans into a regular category
+                    if !orphans.isEmpty {
+                        let orphanItems = orphans.flatMap { orphan in
+                            orphan.locations.map { location in
+                                CleanableItem(
+                                    id: location.id,
+                                    path: location.path,
+                                    name: "\(orphan.appName) — \(location.name)",
+                                    size: location.size,
+                                    modifiedDate: location.modifiedDate,
+                                    isSelected: false
+                                )
+                            }
+                        }
+                        let leftoversCategory = CleanCategory(
+                            name: "App Leftovers",
+                            icon: "archivebox",
+                            description: "Files left behind by uninstalled apps",
+                            items: orphanItems,
+                            defaultSelected: false
+                        )
+                        completedResult.categories.append(leftoversCategory)
+                    }
+
                     completedResult.orphanedApps = orphans
                     self.scanResult = completedResult
                     self.state = .results
@@ -261,9 +286,6 @@ class ScanViewModel {
         var selectedItems: [CleanableItem] = []
         for category in result.categories {
             selectedItems.append(contentsOf: category.items.filter(\.isSelected))
-        }
-        for orphan in result.orphanedApps {
-            selectedItems.append(contentsOf: orphan.locations.filter(\.isSelected))
         }
         return selectedItems
     }
