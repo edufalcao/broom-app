@@ -4,6 +4,31 @@ All notable changes to Broom will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-03-15
+
+### Added
+- Large File Finder: new sidebar tab to scan home directory for files > 100 MB
+- Docker cleanup: scan Docker VM data and config (new scan category)
+- Homebrew cleanup: detect old formula versions and cached downloads (new scan category)
+- Dock icon badge showing total junk size after scan
+- VoiceOver accessibility labels on all key interactive elements
+- Receipt database orphan detection (/var/db/receipts)
+- Spotlight metadata orphan detection (NSMetadataQuery)
+- Safe List empty state with description
+- Settings modal sheet with Done button
+- Cmd+3 shortcut for Large Files section
+- 57 tests across 19 suites
+
+### Changed
+- App Leftovers displayed as a regular category row (not a separate section)
+- Confidence badges preserved when orphans convert to category items
+- Settings opens as modal sheet blocking main window instead of separate window
+- About tab has fixed header with scrollable release notes area
+
+### Fixed
+- Sort picker label wrapping in Large Files header
+- Settings tab bar clipping at sheet top edge
+
 ## [1.1.0] - 2026-03-15
 
 ### Added
