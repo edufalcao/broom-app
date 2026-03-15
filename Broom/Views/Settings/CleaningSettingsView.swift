@@ -5,7 +5,7 @@ struct CleaningSettingsView: View {
     @AppStorage("skipRunningApps") private var skipRunningApps = true
     @AppStorage("showDeveloperCaches") private var showDeveloperCaches = true
     @AppStorage("scanDSStores") private var scanDSStores = true
-    @AppStorage("minTempFileAgeHours") private var minTempFileAgeHours = 24
+    @AppStorage("minTempFileAgeHours") private var minTempFileAgeHours = 168
 
     private let ageOptions = [1, 6, 12, 24, 48, 168]
 

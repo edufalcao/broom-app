@@ -133,7 +133,8 @@ actor FileScanner {
 
     func scanTempFiles() async -> CleanCategory {
         var items: [CleanableItem] = []
-        let cutoff = Date().addingTimeInterval(-24 * 3600) // 24 hours ago
+        let ageHours = UserDefaults.standard.object(forKey: "minTempFileAgeHours") as? Int ?? 168
+        let cutoff = Date().addingTimeInterval(-Double(ageHours) * 3600)
 
         for dir in [Constants.userTmpDir, Constants.systemTmp] {
             let oldFiles = enumerateFiles(at: dir, olderThan: cutoff)
