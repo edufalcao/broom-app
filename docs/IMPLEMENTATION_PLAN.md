@@ -1,6 +1,6 @@
 # Broom — Step-by-Step Implementation Plan
 
-> **Version:** 1.0.0-draft
+> **Version:** 1.1.0
 > **Date:** 2026-03-15
 > **Target:** macOS 14.0+ (Sonoma)
 
@@ -10,7 +10,37 @@
 
 This document breaks the implementation into 15 incremental steps. Each step produces something runnable and testable. The steps are ordered so that foundational pieces come first and features build on each other.
 
-**Estimated scope for MVP (Steps 1-13):** ~2 weeks of focused work.
+**Status as of v1.1.0:** Steps 1-13 are fully implemented. Step 14 is ~60% complete. Step 15 is complete.
+
+### Completion Summary
+
+| Step | Description | Status |
+|------|-------------|--------|
+| 1 | Xcode Project & Desktop App Shell | **Done** |
+| 2 | Foundation Layer (Constants, Formatter, Logger) | **Done** |
+| 3 | Data Models | **Done** |
+| 4 | FileScanner — System Caches | **Done** |
+| 5 | Scan Results UI | **Done** |
+| 6 | Full Scan — All Categories | **Done** |
+| 7 | Category Detail & Item Selection | **Done** |
+| 8 | FileCleaner — Clean to Trash | **Done** |
+| 9 | Orphan Detection | **Done** |
+| 10 | App Uninstaller — App List & Detail | **Done** |
+| 11 | App Uninstaller — Uninstall Flow | **Done** |
+| 12 | Drag-and-Drop Uninstall | **Done** |
+| 13 | Settings | **Done** |
+| 14 | Polish & Edge Cases | **Partial** — missing Dock badge, accessibility labels |
+| 15 | Packaging & Distribution | **Done** |
+
+### Beyond the Original Plan (added in v1.1.0)
+
+- Service protocols (`ServiceProtocols.swift`) for dependency injection
+- Centralized `AppPreferences` struct injected into services at runtime
+- Comprehensive test suite: 14 test files, ~39 tests, with mock infrastructure (`TestSupport.swift`)
+- In-app release notes system (`ReleaseNotes.swift`)
+- `UninstallConfirmView` as a proper sheet with per-file selection and Trash/permanent toggle
+- Launch agent and daemon discovery in the app uninstaller
+- Running app detection with warning before cleaning caches
 
 ---
 

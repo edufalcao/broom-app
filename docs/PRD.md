@@ -1,9 +1,9 @@
 # Broom — Product Requirements Document
 
-> **Version:** 1.0.0-draft
+> **Version:** 1.1.0
 > **Author:** Eduardo
 > **Date:** 2026-03-15
-> **Status:** Planning
+> **Status:** Implemented (v1.1.0 shipped)
 
 ---
 
@@ -591,20 +591,22 @@ broom-app/
 
 ---
 
-## 8. Future Roadmap (Post-MVP)
+## 8. Future Roadmap
 
-These features are explicitly out of scope for v1.0 but planned for future versions.
+These features are planned for future versions.
 
 | Feature | Version | Description |
 |---------|---------|-------------|
-| **Large File Finder** | v1.1 | Scan home directory for files > 100MB, sorted by size |
-| **Duplicate File Finder** | v1.2 | Content-hash-based duplicate detection |
-| **Disk Usage Visualization** | v1.3 | Treemap or sunburst chart of disk usage |
-| **Scheduled Cleaning** | v1.1 | Run scans on a schedule (weekly/monthly) with notification |
-| **CLI Interface** | v1.1 | `broom scan`, `broom clean` for terminal users |
-| **Localization** | v1.2 | Multi-language support |
-| **Docker Cleanup** | v1.1 | Remove unused Docker images, containers, volumes |
-| **Homebrew Cleanup** | v1.1 | Remove old formula versions, clean cache |
+| **Large File Finder** | v1.2 | Scan home directory for files > 100MB, sorted by size |
+| **Duplicate File Finder** | v1.3 | Content-hash-based duplicate detection |
+| **Disk Usage Visualization** | v1.4 | Treemap or sunburst chart of disk usage |
+| **Scheduled Cleaning** | v1.2 | Run scans on a schedule (weekly/monthly) with notification |
+| **CLI Interface** | v1.2 | `broom scan`, `broom clean` for terminal users |
+| **Localization** | v1.3 | Multi-language support |
+| **Docker Cleanup** | v1.2 | Remove unused Docker images, containers, volumes |
+| **Homebrew Cleanup** | v1.2 | Remove old formula versions, clean cache |
+| **Dock Icon Badge** | v1.2 | Show junk size on Dock icon after scan |
+| **Auto-Update (Sparkle)** | v1.2 | In-app update checking and installation |
 
 ---
 

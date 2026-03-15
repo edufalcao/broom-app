@@ -7,15 +7,28 @@ A free, open-source macOS utility that helps you reclaim disk space and maintain
 **System Cleaner** - Scan and remove junk files:
 - System and browser caches (Chrome, Firefox, Safari, Arc, Brave, Edge)
 - System logs and crash reports
-- Temporary files
+- Temporary files (configurable age threshold, default 7 days)
 - Xcode derived data and archives
 - Developer caches (npm, pip, Homebrew, CocoaPods, SPM, Yarn)
 - .DS_Store files
 - Mail attachments
+- Orphaned app leftovers with confidence scoring
 
-**App Leftover Cleanup** - Detect orphaned files left behind by uninstalled apps, with confidence scoring to help you decide what's safe to remove.
+**App Uninstaller** - Fully uninstall apps:
+- Browse all installed apps with icons, sizes, and last-used dates
+- Sort by name, size, or last used
+- See every associated file across Library directories (including launch agents/daemons)
+- Per-file selection — choose exactly what to remove
+- Drag-and-drop a .app onto the window to uninstall it
+- Running app detection with quit-before-uninstall flow
 
-**App Uninstaller** - Fully uninstall apps by removing the .app bundle and all associated files across Library directories in a single action. Supports drag-and-drop.
+**Settings:**
+- Launch at login
+- Move to Trash (default) or delete permanently
+- Skip caches for running apps
+- Configurable temp file age threshold
+- Toggle developer caches and .DS_Store scanning
+- Custom safe list (paths/bundle IDs that are never flagged)
 
 ## Safety
 
@@ -23,8 +36,9 @@ A free, open-source macOS utility that helps you reclaim disk space and maintain
 - Full preview before any deletion
 - Confirmation dialogs for all destructive actions
 - Hardcoded exclusion list for system-critical files
-- Running app detection
+- Running app detection before cleaning caches
 - Orphaned files are unselected by default
+- Per-file selection in uninstall previews
 
 ## Privacy
 
@@ -54,7 +68,7 @@ brew install --cask broom
 brew install xcodegen
 
 # Clone and build
-git clone https://github.com/your-username/broom-app.git
+git clone https://github.com/edufalcao/broom-app.git
 cd broom-app
 xcodegen generate
 open Broom.xcodeproj
@@ -66,13 +80,27 @@ Build and run with Cmd+R in Xcode, or from the command line:
 xcodebuild -scheme Broom -configuration Debug build
 ```
 
+Run tests:
+
+```bash
+xcodebuild -scheme Broom -configuration Debug test
+```
+
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
 | Cmd+Shift+S | Start scan |
+| Cmd+1 | Switch to System Cleaner |
+| Cmd+2 | Switch to App Uninstaller |
 | Cmd+, | Open Settings |
 | Cmd+Q | Quit |
+
+## Architecture
+
+MVVM + Service Protocol Layer. Services are Swift actors communicating through protocols, enabling full dependency injection and mock-based testing. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
+
+**49 source files, 14 test files, ~39 tests** across scanner, cleaner, orphan detection, app inventory, uninstaller, preferences, and view model layers.
 
 ## License
 

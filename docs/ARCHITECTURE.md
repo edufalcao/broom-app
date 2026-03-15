@@ -1,6 +1,6 @@
 # Broom — Technical Architecture
 
-> **Version:** 1.0.0-draft
+> **Version:** 1.1.0
 > **Date:** 2026-03-15
 
 ---
@@ -13,39 +13,51 @@
 │                                                              │
 │  MainWindow ──── CleanerView ──── ScanResultsView            │
 │  UninstallerView ──── AppDetailView ──── SettingsView        │
+│  UninstallConfirmView                                        │
 │                                                              │
 ├──────────────────────────────────────────────────────────────┤
 │                      ViewModel Layer                         │
 │                                                              │
-│  ScanViewModel ──── UninstallerViewModel ──── SettingsViewModel │
+│  ScanViewModel ──── UninstallerViewModel                     │
 │                                                              │
-│  State machines driving UI. @Observable classes.             │
-│  No file system access — delegates to services.             │
+│  @MainActor @Observable classes. State machines driving UI.  │
+│  No file system access — delegates to services via protocols.│
 │                                                              │
 ├──────────────────────────────────────────────────────────────┤
-│                       Service Layer                          │
+│                    Service Protocol Layer                     │
 │                                                              │
-│  FileScanner ──── FileCleaner ──── AppInventory             │
-│  OrphanDetector ──── AppUninstaller ──── PermissionChecker  │
+│  ScanServing ──── CleanServing ──── AppInventoryServing      │
+│  OrphanDetecting ──── AppUninstalling                        │
 │                                                              │
-│  Stateful services are Swift actors. Helpers use static APIs. │
-│  File system operations stay outside the view layer.         │
+│  Protocols enabling dependency injection and testing.        │
+│                                                              │
+├──────────────────────────────────────────────────────────────┤
+│                   Service Implementation Layer                │
+│                                                              │
+│  FileScanner ──── FileCleaner ──── AppInventory              │
+│  OrphanDetector ──── AppUninstaller ──── PermissionChecker   │
+│  RunningAppDetector ──── NotificationManager                 │
+│                                                              │
+│  Swift actors for thread safety. Receive AppPreferences      │
+│  via injection. File system operations isolated here.        │
 │                                                              │
 ├──────────────────────────────────────────────────────────────┤
 │                      Foundation Layer                        │
 │                                                              │
-│  Constants ──── SizeFormatter ──── Logger ──── SafeDelete   │
-│  ExclusionList ──── BundleIDMatcher                         │
+│  Constants ──── SizeFormatter ──── Logger ──── SafeDelete    │
+│  ExclusionList ──── BundleIDMatcher ──── AppPreferences      │
+│  ReleaseNotes                                                │
 │                                                              │
-│  Stateless utilities. Pure functions where possible.        │
+│  Stateless utilities. Pure functions where possible.         │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**Why MVVM + Service Layer?**
+**Why MVVM + Service Protocols?**
 - MVVM is the standard SwiftUI pattern — community resources and tutorials are abundant
-- The service layer separates file system operations from business logic
+- The service protocol layer separates file system operations from business logic
 - Services are `actor`-typed, making concurrency safe without manual locking
-- ViewModels are the only connection between views and services
+- ViewModels communicate with services exclusively through protocols, enabling full mock-based testing
+- `AppPreferences` is injected into services, keeping preferences out of global state
 - This layering makes unit testing straightforward: mock services, test ViewModels
 
 ---
@@ -68,9 +80,8 @@ Broom/
 │   └── CleanReport.swift                   # Post-clean summary (freed bytes, errors)
 │
 ├── ViewModels/
-│   ├── ScanViewModel.swift                 # Drives scan/clean flow (idle→scanning→results→cleaning→done)
-│   ├── UninstallerViewModel.swift          # Drives the app uninstaller section
-│   └── SettingsViewModel.swift             # Manages preferences and safe list
+│   ├── ScanViewModel.swift                 # @MainActor: scan/clean flow with running app detection
+│   └── UninstallerViewModel.swift          # @MainActor: app list, uninstall, drag-and-drop
 │
 ├── Views/
 │   ├── MainWindow.swift                    # Top-level NavigationSplitView with inline sidebar content
@@ -89,7 +100,7 @@ Broom/
 │   │   ├── AppListView.swift               # Left panel: list of installed apps
 │   │   ├── AppRowView.swift                # Single app row in the list
 │   │   ├── AppDetailView.swift             # Right panel: app files breakdown
-│   │   └── UninstallConfirmView.swift      # Confirmation dialog before uninstall
+│   │   └── UninstallConfirmView.swift      # Confirmation sheet with per-file selection
 │   │
 │   ├── Settings/
 │   │   ├── SettingsView.swift              # TabView with General, Cleaning, Safe List, About
@@ -107,25 +118,46 @@ Broom/
 │       └── EmptyStateView.swift            # "No junk found" / "No orphans" states
 │
 ├── Services/
-│   ├── FileScanner.swift                   # Scans all target directories, computes sizes
+│   ├── ServiceProtocols.swift              # Protocol definitions (ScanServing, CleanServing, etc.)
+│   ├── FileScanner.swift                   # Scans all target directories, respects preferences
 │   ├── FileCleaner.swift                   # Moves files to Trash or deletes permanently
-│   ├── AppInventory.swift                  # Enumerates installed apps and bundle IDs
-│   ├── OrphanDetector.swift                # Detects orphaned Library files
+│   ├── AppInventory.swift                  # Enumerates apps, finds associated files + launch agents
+│   ├── OrphanDetector.swift                # Detects orphaned Library files with confidence scoring
 │   ├── AppUninstaller.swift                # Removes app bundle + all associated files
-│   ├── PermissionChecker.swift             # Checks Full Disk Access status
-│   └── RunningAppDetector.swift            # Detects running apps via NSWorkspace
+│   ├── PermissionChecker.swift             # Checks Full Disk Access status (POSIX open)
+│   ├── RunningAppDetector.swift            # Detects running apps, matches to cache paths
+│   └── NotificationManager.swift           # Post-scan/clean notifications via UserNotifications
 │
 ├── Utilities/
 │   ├── Constants.swift                     # All scan target paths, protected prefixes
 │   ├── SizeFormatter.swift                 # ByteCountFormatter wrapper
 │   ├── BundleIDMatcher.swift               # Logic for matching bundle IDs to directory names
-│   ├── ExclusionList.swift                 # Manages hardcoded + user-defined exclusions
+│   ├── ExclusionList.swift                 # Manages hardcoded + user-defined safe list exclusions
 │   ├── SafeDelete.swift                    # trashItem wrapper with error handling
 │   ├── Logger.swift                        # os.Logger wrapper
-│   └── AppIconLoader.swift                 # Extracts app icons from .app bundles
+│   ├── AppPreferences.swift                # Sendable preferences struct loaded from UserDefaults
+│   └── ReleaseNotes.swift                  # Structured in-app release notes
 │
 └── Resources/
-    └── Localizable.strings                 # (future) Localization
+    └── Assets.xcassets/                    # App icon, accent color
+```
+
+```
+BroomTests/
+├── TestSupport.swift                       # Shared mocks and test helpers
+├── SizeFormatterTests.swift
+├── ModelTests.swift
+├── BundleIDMatcherTests.swift
+├── FileScannerTests.swift
+├── OrphanDetectorTests.swift
+├── AppInventoryTests.swift
+├── AppUninstallerTests.swift
+├── FileCleanerTests.swift
+├── ScanViewModelTests.swift
+├── UninstallerViewModelTests.swift
+├── ExclusionListTests.swift
+├── RunningAppDetectorTests.swift
+└── AppPreferencesTests.swift
 ```
 
 ---
