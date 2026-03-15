@@ -62,9 +62,12 @@ struct CategoryDetailView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.name)
                                         .lineLimit(1)
-                                    Text(item.modifiedDate, style: .relative)
+                                    Text(item.path.path)
                                         .font(.caption)
                                         .foregroundStyle(.tertiary)
+                                        .lineLimit(1)
+                                        .truncationMode(.head)
+                                        .help(item.path.path)
                                 }
 
                                 Spacer()

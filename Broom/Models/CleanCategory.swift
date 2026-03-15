@@ -13,6 +13,7 @@ struct CleanCategory: Identifiable {
     var selectedSize: Int64 { items.filter(\.isSelected).reduce(0) { $0 + $1.size } }
     var itemCount: Int { items.count }
     var selectedCount: Int { items.filter(\.isSelected).count }
+    var isMixed: Bool { selectedCount > 0 && selectedCount < itemCount }
 
     init(
         id: UUID = UUID(),

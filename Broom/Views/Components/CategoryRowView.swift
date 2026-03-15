@@ -7,13 +7,23 @@ struct CategoryRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Toggle(isOn: Binding(
-                get: { category.isSelected },
-                set: { _ in onToggle() }
-            )) {
-                EmptyView()
+            if category.isMixed {
+                // Mixed state: show a minus/dash checkbox
+                Button(action: onToggle) {
+                    Image(systemName: "minus.square.fill")
+                        .foregroundStyle(.tint)
+                        .font(.system(size: 14))
+                }
+                .buttonStyle(.plain)
+            } else {
+                Toggle(isOn: Binding(
+                    get: { category.isSelected },
+                    set: { _ in onToggle() }
+                )) {
+                    EmptyView()
+                }
+                .toggleStyle(.checkbox)
             }
-            .toggleStyle(.checkbox)
 
             Image(systemName: category.icon)
                 .frame(width: 20)
