@@ -7,11 +7,29 @@ struct SafeListSettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            List(safeListEntries, id: \.self, selection: $selection) { entry in
-                Text(entry)
-                    .lineLimit(1)
+            if safeListEntries.isEmpty {
+                VStack(spacing: 12) {
+                    Spacer()
+                    Image(systemName: "shield.slash")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.tertiary)
+                    Text("No safe list entries")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                    Text("Add paths or bundle IDs that Broom should never flag for cleaning. Useful for caches or app data you want to keep.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 300)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List(safeListEntries, id: \.self, selection: $selection) { entry in
+                    Text(entry)
+                        .lineLimit(1)
+                }
             }
-            .frame(minHeight: 150)
 
             Divider()
 

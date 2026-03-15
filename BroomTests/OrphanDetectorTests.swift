@@ -17,7 +17,7 @@ struct OrphanDetectorTests {
         let inventory = MockAppInventory(bundleIdentifiers: ["com.example.installed"])
         let detector = OrphanDetector(
             appInventory: inventory,
-            locations: OrphanDetectorLocations(librarySubdirectories: [applicationSupport, savedState]),
+            locations: OrphanDetectorLocations(librarySubdirectories: [applicationSupport, savedState], receiptsDirectory: root.appendingPathComponent("receipts")),
             preferencesProvider: {
                 let defaults = UserDefaults(suiteName: UUID().uuidString)!
                 return AppPreferences(userDefaults: defaults, safeListURL: root.appendingPathComponent("missing.json"))
@@ -47,7 +47,7 @@ struct OrphanDetectorTests {
 
         let detector = OrphanDetector(
             appInventory: MockAppInventory(bundleIdentifiers: []),
-            locations: OrphanDetectorLocations(librarySubdirectories: [caches]),
+            locations: OrphanDetectorLocations(librarySubdirectories: [caches], receiptsDirectory: root.appendingPathComponent("receipts")),
             preferencesProvider: {
                 let defaults = UserDefaults(suiteName: UUID().uuidString)!
                 return AppPreferences(userDefaults: defaults, safeListURL: safeListURL)
