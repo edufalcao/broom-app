@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          brew install xcodegen create-dmg
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build Release
+        run: |
+          xcodebuild \
+            -scheme Broom \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
+            build
+
+      - name: Create DMG
+        run: |
+          APP_PATH="build/DerivedData/Build/Products/Release/Broom.app"
+          create-dmg \
+            --volname "Broom" \
+            --window-size 600 400 \
+            --icon "Broom.app" 150 190 \
+            --app-drop-link 450 190 \
+            "Broom-${GITHUB_REF_NAME}.dmg" \
+            "$APP_PATH"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Broom-*.dmg
+          generate_release_notes: true

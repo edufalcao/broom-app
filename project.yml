@@ -1,0 +1,60 @@
+name: Broom
+options:
+  bundleIdPrefix: com.broom
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  minimumXcodeGenVersion: "2.40.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ENABLE_HARDENED_RUNTIME: true
+
+targets:
+  Broom:
+    type: application
+    platform: macOS
+    sources:
+      - Broom
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.broom.app
+        PRODUCT_NAME: Broom
+        INFOPLIST_FILE: Broom/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Broom/Broom.entitlements
+        GENERATE_INFOPLIST_FILE: true
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: 1
+        CODE_SIGN_IDENTITY: "-"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    entitlements:
+      path: Broom/Broom.entitlements
+
+  BroomTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - BroomTests
+    dependencies:
+      - target: Broom
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.broom.app.tests
+        GENERATE_INFOPLIST_FILE: true
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Broom.app/Contents/MacOS/Broom"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
+schemes:
+  Broom:
+    build:
+      targets:
+        Broom: all
+        BroomTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - BroomTests
