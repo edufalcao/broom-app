@@ -3,6 +3,7 @@ import SwiftUI
 
 struct AboutSettingsView: View {
     private let repositoryURL = URL(string: "https://github.com/edufalcao/broom-app")
+    private let personalWebsiteURL = URL(string: "https://edufalcao.com")
 
     private var version: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ReleaseNotes.currentVersion
@@ -41,9 +42,16 @@ struct AboutSettingsView: View {
                             .font(.caption)
                     }
 
-                    Text("Created by Eduardo")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                    HStack(spacing: 0) {
+                        Text("Created by ")
+                        if let personalWebsiteURL {
+                            Link("Eduardo Falcão", destination: personalWebsiteURL)
+                        } else {
+                            Text("Eduardo Falcão")
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
                 }
             }
             .padding()

@@ -1,9 +1,9 @@
 # Broom — Product Requirements Document
 
-> **Version:** 1.3.0
+> **Version:** 1.0.0
 > **Author:** Eduardo
 > **Date:** 2026-03-15
-> **Status:** Implemented (v1.3.0 current)
+> **Status:** Implemented (v1.0.0 current)
 
 ---
 
@@ -621,12 +621,12 @@ These features are planned for future versions.
 
 | Feature | Version | Description |
 |---------|---------|-------------|
-| **Duplicate File Finder** | v1.4 | Content-hash-based duplicate detection |
-| **Scheduled Cleaning** | v1.4 | Run scans on a schedule (weekly/monthly) with notification |
-| **Auto-Update (Sparkle)** | v1.4 | In-app update checking and installation |
-| **Disk Usage Visualization** | v1.5 | Treemap or sunburst chart of disk usage |
-| **CLI Interface** | v1.5 | `broom scan`, `broom clean` for terminal users |
-| **Localization** | v1.5 | Multi-language support |
+| **Duplicate File Finder** | v1.1 | Content-hash-based duplicate detection |
+| **Scheduled Cleaning** | v1.1 | Run scans on a schedule (weekly/monthly) with notification |
+| **Auto-Update (Sparkle)** | v1.1 | In-app update checking and installation |
+| **Disk Usage Visualization** | v1.2 | Treemap or sunburst chart of disk usage |
+| **CLI Interface** | v1.2 | `broom scan`, `broom clean` for terminal users |
+| **Localization** | v1.2 | Multi-language support |
 
 ---
 

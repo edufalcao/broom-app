@@ -1,6 +1,6 @@
 # Broom — Step-by-Step Implementation Plan
 
-> **Version:** 1.3.0
+> **Version:** 1.0.0
 > **Date:** 2026-03-15
 > **Target:** macOS 14.0+ (Sonoma)
 
@@ -8,9 +8,9 @@
 
 ## Overview
 
-This document records the original 15-step implementation sequence for Broom and the follow-on work that shipped afterward. The step breakdown remains useful as build history, while the status summary below reflects the current codebase.
+This document records the implementation sequence used to build the current Broom baseline. The step breakdown remains useful as build history, while the status summary below reflects the current codebase.
 
-**Status as of v1.3.0:** Steps 1-15 are implemented. Later releases added the Large File Finder, Dock badge, accessibility pass, Docker/Homebrew cleanup, Spotlight-supplemented app inventory, a force-quit uninstall fallback, and the cleaner trust/defaults pass.
+**Status as of v1.0.0:** Steps 1-15 are implemented. The current baseline already includes the Large File Finder, Dock badge, accessibility pass, Docker/Homebrew cleanup, Spotlight-supplemented app inventory, a force-quit uninstall fallback, and the cleaner trust/defaults pass.
 
 ### Completion Summary
 
@@ -32,7 +32,7 @@ This document records the original 15-step implementation sequence for Broom and
 | 14 | Polish & Edge Cases | **Done** |
 | 15 | Packaging & Distribution | **Done** |
 
-### Beyond the Original Plan (v1.1.0 through v1.3.0)
+### Included in the Current Baseline
 
 - Service protocols (`ServiceProtocols.swift`) for dependency injection
 - Centralized `AppPreferences` struct injected into services at runtime

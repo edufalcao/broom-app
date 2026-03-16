@@ -20,16 +20,14 @@ Project documentation is grouped by domain and by release-document lifecycle.
 
 ### Releases
 - [Release Notes](./releases/notes/)
-  Published release notes for shipped versions only.
+  Published release notes for shipped versions only. The current baseline release note is `1.0.0`.
 - [Release Plans](./releases/plans/)
-  Planning documents for upcoming, in-progress, or recently implemented releases.
-  - [1.3.0 Plan](./releases/plans/1.3.0.md)
-    Product parity and trust pass implemented on `main`.
+  Reserved for future release planning documents when the next version is scoped.
 
 ## Placement Rules
 
 - Keep the `docs/` root limited to this index plus category folders.
 - Put evergreen product and engineering references in their domain folders.
 - Put shipped release notes in `docs/releases/notes/`.
-- Put release-planning docs in `docs/releases/plans/` and update their status when implementation lands.
+- Put future release-planning docs in `docs/releases/plans/` when a new version is actively being scoped.
 - Do not mix planning documents with published release notes.
