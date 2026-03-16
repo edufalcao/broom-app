@@ -14,6 +14,10 @@ Project documentation is grouped by domain and by release-document lifecycle.
 - [Implementation Plan](./engineering/implementation-plan.md)
   Implementation history, execution steps, and current milestone status.
 
+### Plans
+- [Uninstall & Orphan Hardening Plan](./plans/uninstall-orphan-hardening.md)
+  Proposed work to make explicit app uninstalls more complete and generic leftover detection more conservative.
+
 ### Design
 - [Icon Brief](./design/icon-brief.md)
   App icon exploration and handoff guidance.
@@ -28,6 +32,7 @@ Project documentation is grouped by domain and by release-document lifecycle.
 
 - Keep the `docs/` root limited to this index plus category folders.
 - Put evergreen product and engineering references in their domain folders.
+- Put active cross-cutting implementation plans in `docs/plans/`.
 - Put shipped release notes in `docs/releases/notes/`.
 - Put future release-planning docs in `docs/releases/plans/` when a new version is actively being scoped.
 - Do not mix planning documents with published release notes.
