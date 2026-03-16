@@ -44,14 +44,15 @@ struct AboutSettingsView: View {
 
                     HStack(spacing: 0) {
                         Text("Created by ")
+                            .foregroundStyle(.tertiary)
                         if let personalWebsiteURL {
                             Link("Eduardo Falcão", destination: personalWebsiteURL)
                         } else {
                             Text("Eduardo Falcão")
+                                .foregroundStyle(.tertiary)
                         }
                     }
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
                 }
             }
             .padding()
