@@ -109,8 +109,6 @@ xcodebuild -scheme Broom -configuration Debug test
 
 MVVM + service protocol layer. Services handle file-system work behind testable interfaces, and the app uses Swift concurrency throughout the cleaner, uninstaller, and large-file flows. See [docs/engineering/architecture.md](docs/engineering/architecture.md) for details.
 
-**72 tests across 21 suites** cover scanner behavior, cleaner flows, orphan detection, app inventory, uninstall state, preferences, and view models.
-
 ## License
 
 MIT - see [LICENSE](LICENSE)

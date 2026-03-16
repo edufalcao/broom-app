@@ -36,7 +36,7 @@ This document records the implementation sequence used to build the current Broo
 
 - Service protocols (`ServiceProtocols.swift`) for dependency injection
 - Centralized `AppPreferences` struct injected into services at runtime
-- Comprehensive test suite: 20 test files, 72 tests across 21 suites, with mock infrastructure (`TestSupport.swift`)
+- Comprehensive test suite with mock infrastructure (`TestSupport.swift`)
 - In-app release notes system (`ReleaseNotes.swift`)
 - `UninstallConfirmView` as a proper sheet with per-file selection and Trash/permanent toggle
 - Launch agent and daemon discovery in the app uninstaller

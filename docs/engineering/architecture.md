@@ -150,7 +150,7 @@ BroomTests/
 └── UninstallerViewModelTests.swift
 ```
 
-The current suite runs 72 tests across 21 suites.
+Run the full suite with `xcodebuild -scheme Broom test`.
 
 ---
 
