@@ -1,11 +1,11 @@
 import SwiftUI
 
 struct CleaningSettingsView: View {
-    @AppStorage("moveToTrash") private var moveToTrash = true
-    @AppStorage("skipRunningApps") private var skipRunningApps = true
-    @AppStorage("showDeveloperCaches") private var showDeveloperCaches = true
-    @AppStorage("scanDSStores") private var scanDSStores = true
-    @AppStorage("minTempFileAgeHours") private var minTempFileAgeHours = 168
+    @AppStorage("moveToTrash") private var moveToTrash = AppPreferences.defaultMoveToTrash
+    @AppStorage("skipRunningApps") private var skipRunningApps = AppPreferences.defaultSkipRunningApps
+    @AppStorage("showDeveloperCaches") private var showDeveloperCaches = AppPreferences.defaultShowDeveloperCaches
+    @AppStorage("scanDSStores") private var scanDSStores = AppPreferences.defaultScanDSStores
+    @AppStorage("minTempFileAgeHours") private var minTempFileAgeHours = AppPreferences.defaultTempFileAgeHours
 
     private let ageOptions = [1, 6, 12, 24, 48, 168]
 

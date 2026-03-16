@@ -81,11 +81,27 @@ struct UninstallerView: View {
             Button("Quit and Uninstall", role: .destructive) {
                 viewModel.quitAndUninstall()
             }
+            Button("Force Quit and Uninstall", role: .destructive) {
+                viewModel.forceQuitAndUninstall()
+            }
             Button("Cancel", role: .cancel) {
                 viewModel.cancelUninstall()
             }
         } message: {
-            Text("The app must be quit before it can be uninstalled.")
+            Text("The app must be quit before it can be uninstalled. You can force quit it if a normal quit does not work.")
+        }
+        .alert(
+            "Force quit \(viewModel.uninstallPlan?.app.name ?? "app")?",
+            isPresented: $viewModel.showForceQuitAlert
+        ) {
+            Button("Force Quit and Continue", role: .destructive) {
+                viewModel.forceQuitAndUninstall()
+            }
+            Button("Cancel", role: .cancel) {
+                viewModel.cancelUninstall()
+            }
+        } message: {
+            Text("The app did not quit cleanly. Force quitting may interrupt unsaved work.")
         }
     }
 

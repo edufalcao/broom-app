@@ -82,4 +82,75 @@ struct UninstallerViewModelTests {
         app.associatedFiles[0].isSelected = false
         #expect(viewModel.selectedApp?.selectedItemCount == 0)
     }
+
+    @MainActor
+    @Test func showsForceQuitFallbackWhenGracefulQuitFails() async {
+        let app = InstalledApp(
+            name: "Running",
+            bundleIdentifier: "com.example.running",
+            bundlePath: URL(fileURLWithPath: "/tmp/Running.app")
+        )
+        let plan = UninstallPlan(
+            app: app,
+            filesToRemove: [
+                CleanableItem(path: app.bundlePath, name: "Running.app", size: 10),
+            ],
+            totalSize: 10,
+            isRunning: true,
+            isProtected: false
+        )
+
+        let viewModel = UninstallerViewModel(
+            appInventory: MockAppInventory(apps: [app]),
+            appUninstaller: MockAppUninstaller(preparedPlan: plan),
+            runningAppController: RunningAppController(
+                isRunning: { _ in true },
+                terminate: { _ in false },
+                forceTerminate: { _ in true }
+            )
+        )
+
+        viewModel.uninstallPlan = plan
+        viewModel.showRunningAppAlert = true
+        viewModel.quitAndUninstall()
+
+        #expect(viewModel.showRunningAppAlert == false)
+        #expect(viewModel.showForceQuitAlert == true)
+    }
+
+    @MainActor
+    @Test func forceQuitProceedsToConfirmationWhenAppStopsRunning() async {
+        let app = InstalledApp(
+            name: "Running",
+            bundleIdentifier: "com.example.running",
+            bundlePath: URL(fileURLWithPath: "/tmp/Running.app")
+        )
+        let plan = UninstallPlan(
+            app: app,
+            filesToRemove: [
+                CleanableItem(path: app.bundlePath, name: "Running.app", size: 10),
+            ],
+            totalSize: 10,
+            isRunning: true,
+            isProtected: false
+        )
+
+        let viewModel = UninstallerViewModel(
+            appInventory: MockAppInventory(apps: [app]),
+            appUninstaller: MockAppUninstaller(preparedPlan: plan),
+            runningAppController: RunningAppController(
+                isRunning: { _ in false },
+                terminate: { _ in true },
+                forceTerminate: { _ in true }
+            )
+        )
+
+        viewModel.uninstallPlan = plan
+        viewModel.showForceQuitAlert = true
+        viewModel.forceQuitAndUninstall()
+        await TestSupport.awaitCondition { viewModel.showUninstallConfirmation }
+
+        #expect(viewModel.showForceQuitAlert == false)
+        #expect(viewModel.showUninstallConfirmation == true)
+    }
 }

@@ -1,6 +1,13 @@
 import Foundation
 
 struct AppPreferences: Equatable, Sendable {
+    static let defaultMoveToTrash = true
+    static let defaultSkipRunningApps = true
+    static let defaultShowDeveloperCaches = true
+    static let defaultScanDSStores = true
+    static let defaultShowNotifications = true
+    static let defaultTempFileAgeHours = 168
+
     let moveToTrash: Bool
     let skipRunningApps: Bool
     let showDeveloperCaches: Bool
@@ -15,32 +22,33 @@ struct AppPreferences: Equatable, Sendable {
     ) {
         moveToTrash = Self.boolValue(
             forKey: "moveToTrash",
-            defaultValue: true,
+            defaultValue: Self.defaultMoveToTrash,
             userDefaults: userDefaults
         )
         skipRunningApps = Self.boolValue(
             forKey: "skipRunningApps",
-            defaultValue: true,
+            defaultValue: Self.defaultSkipRunningApps,
             userDefaults: userDefaults
         )
         showDeveloperCaches = Self.boolValue(
             forKey: "showDeveloperCaches",
-            defaultValue: true,
+            defaultValue: Self.defaultShowDeveloperCaches,
             userDefaults: userDefaults
         )
         scanDSStores = Self.boolValue(
             forKey: "scanDSStores",
-            defaultValue: true,
+            defaultValue: Self.defaultScanDSStores,
             userDefaults: userDefaults
         )
-        minTempFileAgeHours = userDefaults.object(forKey: "minTempFileAgeHours") as? Int ?? 24
+        minTempFileAgeHours =
+            userDefaults.object(forKey: "minTempFileAgeHours") as? Int ?? Self.defaultTempFileAgeHours
         safeListEntries = ExclusionList.loadUserEntries(
             from: safeListURL,
             fileManager: fileManager
         )
     }
 
-    private static func boolValue(
+    static func boolValue(
         forKey key: String,
         defaultValue: Bool,
         userDefaults: UserDefaults

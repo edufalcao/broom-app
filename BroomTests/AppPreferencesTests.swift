@@ -18,7 +18,7 @@ struct AppPreferencesTests {
         #expect(preferences.skipRunningApps == true)
         #expect(preferences.showDeveloperCaches == true)
         #expect(preferences.scanDSStores == true)
-        #expect(preferences.minTempFileAgeHours == 24)
+        #expect(preferences.minTempFileAgeHours == AppPreferences.defaultTempFileAgeHours)
         #expect(preferences.safeListEntries.isEmpty)
     }
 

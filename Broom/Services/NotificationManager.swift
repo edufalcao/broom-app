@@ -2,12 +2,20 @@ import Foundation
 import UserNotifications
 
 enum NotificationManager {
+    static func notificationsEnabled(userDefaults: UserDefaults = .standard) -> Bool {
+        AppPreferences.boolValue(
+            forKey: "showNotifications",
+            defaultValue: AppPreferences.defaultShowNotifications,
+            userDefaults: userDefaults
+        )
+    }
+
     static func requestPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
     static func sendScanComplete(totalSize: Int64) {
-        guard UserDefaults.standard.bool(forKey: "showNotifications") else { return }
+        guard notificationsEnabled() else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Scan Complete"
@@ -23,7 +31,7 @@ enum NotificationManager {
     }
 
     static func sendCleanComplete(freedBytes: Int64) {
-        guard UserDefaults.standard.bool(forKey: "showNotifications") else { return }
+        guard notificationsEnabled() else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Cleaning Complete"

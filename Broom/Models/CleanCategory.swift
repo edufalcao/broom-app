@@ -27,7 +27,15 @@ struct CleanCategory: Identifiable {
         self.name = name
         self.icon = icon
         self.description = description
-        self.items = items
+        if defaultSelected {
+            self.items = items
+        } else {
+            self.items = items.map { item in
+                var item = item
+                item.isSelected = false
+                return item
+            }
+        }
         self.defaultSelected = defaultSelected
         self.isSelected = defaultSelected
     }

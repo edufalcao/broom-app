@@ -1,6 +1,6 @@
 # Broom — Step-by-Step Implementation Plan
 
-> **Version:** 1.1.0
+> **Version:** 1.3.0
 > **Date:** 2026-03-15
 > **Target:** macOS 14.0+ (Sonoma)
 
@@ -8,9 +8,9 @@
 
 ## Overview
 
-This document breaks the implementation into 15 incremental steps. Each step produces something runnable and testable. The steps are ordered so that foundational pieces come first and features build on each other.
+This document records the original 15-step implementation sequence for Broom and the follow-on work that shipped afterward. The step breakdown remains useful as build history, while the status summary below reflects the current codebase.
 
-**Status as of v1.1.0:** Steps 1-13 are fully implemented. Step 14 is ~60% complete. Step 15 is complete.
+**Status as of v1.3.0:** Steps 1-15 are implemented. Later releases added the Large File Finder, Dock badge, accessibility pass, Docker/Homebrew cleanup, Spotlight-supplemented app inventory, a force-quit uninstall fallback, and the cleaner trust/defaults pass.
 
 ### Completion Summary
 
@@ -29,18 +29,25 @@ This document breaks the implementation into 15 incremental steps. Each step pro
 | 11 | App Uninstaller — Uninstall Flow | **Done** |
 | 12 | Drag-and-Drop Uninstall | **Done** |
 | 13 | Settings | **Done** |
-| 14 | Polish & Edge Cases | **Partial** — missing Dock badge, accessibility labels |
+| 14 | Polish & Edge Cases | **Done** |
 | 15 | Packaging & Distribution | **Done** |
 
-### Beyond the Original Plan (added in v1.1.0)
+### Beyond the Original Plan (v1.1.0 through v1.3.0)
 
 - Service protocols (`ServiceProtocols.swift`) for dependency injection
 - Centralized `AppPreferences` struct injected into services at runtime
-- Comprehensive test suite: 14 test files, ~39 tests, with mock infrastructure (`TestSupport.swift`)
+- Comprehensive test suite: 20 test files, 72 tests across 21 suites, with mock infrastructure (`TestSupport.swift`)
 - In-app release notes system (`ReleaseNotes.swift`)
 - `UninstallConfirmView` as a proper sheet with per-file selection and Trash/permanent toggle
 - Launch agent and daemon discovery in the app uninstaller
 - Running app detection with warning before cleaning caches
+- AppRouter-driven keyboard shortcuts and Dock-drop routing
+- Large File Finder as a third sidebar section
+- Docker cleanup, extended Homebrew reporting, and Downloads awareness in the cleaner
+- Spotlight-supplemented app discovery for non-standard `.app` locations
+- Force-quit fallback in the uninstall flow when a normal terminate request fails
+- Parallel cleaner category execution with deterministic result ordering
+- Unified defaults for temp-file age and notifications
 
 ---
 
@@ -299,7 +306,7 @@ This document breaks the implementation into 15 incremental steps. Each step pro
 1. Add to `FileScanner.swift`:
    - `scanBrowserCaches() async -> CleanCategory` — Chrome, Firefox, Safari, Arc, Brave, Edge
    - `scanLogs() async -> CleanCategory` — user and system logs, crash reports
-   - `scanTempFiles() async -> CleanCategory` — $TMPDIR, /tmp (files > 24h old)
+   - `scanTempFiles() async -> CleanCategory` — $TMPDIR, /tmp (files older than the configured threshold, default 7 days)
    - `scanXcode() async -> CleanCategory?` — DerivedData, Archives (nil if not present)
    - `scanDeveloperCaches() async -> CleanCategory` — SPM, CocoaPods, Homebrew, npm, Yarn, pip
    - `scanMailAttachments() async -> CleanCategory?` — Mail Downloads (nil if no FDA)
@@ -550,35 +557,25 @@ This document breaks the implementation into 15 incremental steps. Each step pro
    - Search all Library subdirectories for matching entries
    - `appLastUsedDate(at: URL) -> Date?` using Spotlight metadata
 
-2. Create `Utilities/AppIconLoader.swift`:
-   - `loadIcon(for app: URL) -> NSImage`
-   - Uses `NSWorkspace.shared.icon(forFile:)` — simple and reliable
-
-3. Create `ViewModels/UninstallerViewModel.swift`:
+2. Create `ViewModels/UninstallerViewModel.swift`:
    - `@Observable` class
-   - State enum: `.loading`, `.ready`, `.preparingUninstall`, `.confirming`, `.uninstalling`, `.done`
+   - State enum: `.loading`, `.ready`, `.uninstalling`, `.done`
    - `loadApps()` async
    - `selectApp(_ app)` async — loads associated files on demand
    - Search text filtering
    - Sort order (name, size, last used)
 
-4. Create `Views/Uninstaller/UninstallerView.swift`:
+3. Create `Views/Uninstaller/UninstallerView.swift`:
    - Main content view for the "Apps" sidebar section
-   - Nested `HSplitView` with app list (left) and detail (right)
+   - Nested `HSplitView` with the app list UI embedded on the left and detail on the right
 
-5. Create `Views/Uninstaller/AppListView.swift`:
-   - Search bar at top
-   - Sort controls
-   - Scrollable list of `AppRowView`
-   - Selection highlight
-
-6. Create `Views/Uninstaller/AppRowView.swift`:
+4. Create `Views/Uninstaller/AppRowView.swift`:
    - App icon (32x32)
    - App name
    - Total size (right-aligned)
    - Visual indicator for system/protected apps
 
-7. Create `Views/Uninstaller/AppDetailView.swift`:
+5. Create `Views/Uninstaller/AppDetailView.swift`:
    - Large app icon (64x64)
    - App name, version, last used date
    - Bundle ID (dimmed)
@@ -591,13 +588,13 @@ This document breaks the implementation into 15 incremental steps. Each step pro
    - "Uninstall" button (`.borderedProminent`, `.tint(.red)`)
    - Protected apps: button disabled with explanation
 
-8. Create `Views/Components/AppIconView.swift`:
+6. Create `Views/Components/AppIconView.swift`:
    - Displays `NSImage` in SwiftUI via `Image(nsImage:)`
    - Fallback to generic app icon
 
-9. Wire `UninstallerView` into `MainWindow.swift` as the detail view for the "Apps" sidebar section
+7. Wire `UninstallerView` into `MainWindow.swift` as the detail view for the "Apps" sidebar section
 
-10. Build & Run. Verify:
+8. Build & Run. Verify:
     - Clicking "Apps" in sidebar shows the uninstaller view
     - All installed apps show with icons and sizes
     - Selecting an app shows its associated files
@@ -606,10 +603,8 @@ This document breaks the implementation into 15 incremental steps. Each step pro
     - System/Apple apps are marked as protected
 
 ### Files Created
-- `Utilities/AppIconLoader.swift`
 - `ViewModels/UninstallerViewModel.swift`
 - `Views/Uninstaller/UninstallerView.swift`
-- `Views/Uninstaller/AppListView.swift`
 - `Views/Uninstaller/AppRowView.swift`
 - `Views/Uninstaller/AppDetailView.swift`
 - `Views/Components/AppIconView.swift`
@@ -749,23 +744,18 @@ This document breaks the implementation into 15 incremental steps. Each step pro
    - Version number from bundle
    - "View on GitHub" link
    - License: MIT
-   - "Made with ❤️ by Eduardo"
+   - Credits and in-app release notes
 
-6. Create `ViewModels/SettingsViewModel.swift`:
-   - Uses `@AppStorage` for simple preferences
-   - Manages safe list file I/O
-   - Handles `SMAppService` for launch at login
-
-7. Wire settings access into the app shell:
+6. Wire settings access into the app shell:
    - `Cmd+,` opens the `Settings` scene
    - Add a toolbar button / affordance that opens Settings from the main window
 
-8. Wire settings into scan/clean behavior:
+7. Wire settings into scan/clean behavior:
    - `FileScanner`: respect "show developer caches" and safe list
    - `FileCleaner`: respect "default delete method"
    - `RunningAppDetector`: respect "skip running app caches"
 
-9. Build & Run. Verify:
+8. Build & Run. Verify:
    - Settings accessible via Cmd+, and the main window toolbar/gear affordance
    - All toggles persist across app restarts
    - Launch at login works
@@ -778,7 +768,6 @@ This document breaks the implementation into 15 incremental steps. Each step pro
 - `Views/Settings/CleaningSettingsView.swift`
 - `Views/Settings/SafeListSettingsView.swift`
 - `Views/Settings/AboutSettingsView.swift`
-- `ViewModels/SettingsViewModel.swift`
 
 ### Files Modified
 - `Services/FileScanner.swift`

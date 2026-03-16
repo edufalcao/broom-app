@@ -1,9 +1,9 @@
 import Foundation
-import os
 
 struct FileScannerLocations {
     let home: URL
     let userCaches: URL
+    let downloads: URL
     let chromeCacheBase: URL
     let firefoxCache: URL
     let safariCache: URL
@@ -20,14 +20,18 @@ struct FileScannerLocations {
     let spmCache: URL
     let cocoapodsCache: URL
     let homebrewCache: URL
+    let homebrewCellar: URL
     let npmCache: URL
     let yarnCache: URL
     let pipCache: URL
+    let dockerData: URL
+    let dockerConfig: URL
     let mailAttachments: URL
 
     static let live = FileScannerLocations(
         home: Constants.home,
         userCaches: Constants.userCaches,
+        downloads: Constants.downloads,
         chromeCacheBase: Constants.userCaches.appendingPathComponent("Google/Chrome"),
         firefoxCache: Constants.firefoxCache,
         safariCache: Constants.safariCache,
@@ -44,15 +48,17 @@ struct FileScannerLocations {
         spmCache: Constants.spmCache,
         cocoapodsCache: Constants.cocoapodsCache,
         homebrewCache: Constants.homebrewCache,
+        homebrewCellar: Constants.homebrewCellar,
         npmCache: Constants.npmCache,
         yarnCache: Constants.yarnCache,
         pipCache: Constants.pipCache,
+        dockerData: Constants.dockerData,
+        dockerConfig: Constants.dockerConfig,
         mailAttachments: Constants.mailAttachments
     )
 }
 
 actor FileScanner: ScanServing {
-    private let fileManager = FileManager.default
     private let locations: FileScannerLocations
     private let preferencesProvider: @Sendable () -> AppPreferences
 
@@ -70,26 +76,47 @@ actor FileScanner: ScanServing {
         AsyncStream { continuation in
             Task {
                 let startTime = Date()
-                var categories: [CleanCategory] = []
-                let preferences = preferencesProvider()
+                let preferences = await self.currentPreferences()
+                let executor = await self.makeExecutor()
                 let phases = scanPhases(for: preferences)
                 let totalSteps = Double(max(phases.count, 1))
+                var completedCount = 0
+                var totalFoundSoFar: Int64 = 0
+                var resultsByPhase: [ScanPhase: CleanCategory] = [:]
 
-                func report(_ name: String, index: Int) {
+                if let firstPhase = phases.first {
                     continuation.yield(.scanning(
-                        category: name,
-                        progress: Double(index) / totalSteps,
-                        foundSoFar: categories.reduce(0) { $0 + $1.totalSize }
+                        category: firstPhase.displayName,
+                        progress: 0,
+                        foundSoFar: 0
                     ))
                 }
 
-                for (index, phase) in phases.enumerated() {
-                    report(phase.displayName, index: index)
-                    if let category = await runPhase(phase, preferences: preferences) {
-                        categories.append(category)
+                await withTaskGroup(of: (ScanPhase, CleanCategory?).self) { group in
+                    for phase in phases {
+                        group.addTask {
+                            (phase, executor.runPhase(phase, preferences: preferences))
+                        }
+                    }
+
+                    for await (phase, category) in group {
+                        if Task.isCancelled { break }
+
+                        if let category {
+                            resultsByPhase[phase] = category
+                            totalFoundSoFar += category.totalSize
+                        }
+
+                        completedCount += 1
+                        continuation.yield(.scanning(
+                            category: phase.displayName,
+                            progress: Double(completedCount) / totalSteps,
+                            foundSoFar: totalFoundSoFar
+                        ))
                     }
                 }
 
+                let categories = phases.compactMap { resultsByPhase[$0] }
                 let duration = Date().timeIntervalSince(startTime)
                 let result = ScanResult(
                     categories: categories,
@@ -103,7 +130,23 @@ actor FileScanner: ScanServing {
         }
     }
 
+    private func currentPreferences() -> AppPreferences {
+        preferencesProvider()
+    }
+
+    private func makeExecutor() -> FileScannerExecutor {
+        FileScannerExecutor(locations: locations)
+    }
+
     // MARK: - Category Scanners
+
+    func scanDocker(userEntries: Set<String>) -> CleanCategory? {
+        makeExecutor().scanDocker(userEntries: userEntries)
+    }
+
+    func scanHomebrewExtended(userEntries: Set<String>) -> CleanCategory? {
+        makeExecutor().scanHomebrewExtended(userEntries: userEntries)
+    }
 
     private nonisolated func scanPhases(for preferences: AppPreferences) -> [ScanPhase] {
         var phases: [ScanPhase] = [
@@ -111,6 +154,7 @@ actor FileScanner: ScanServing {
             .browserCaches,
             .logs,
             .temporaryFiles,
+            .downloads,
         ]
 
         if preferences.showDeveloperCaches {
@@ -129,35 +173,43 @@ actor FileScanner: ScanServing {
         return phases
     }
 
-    private func runPhase(
+}
+
+private struct FileScannerExecutor {
+    private let fileManager = FileManager.default
+    let locations: FileScannerLocations
+
+    func runPhase(
         _ phase: ScanPhase,
         preferences: AppPreferences
-    ) async -> CleanCategory? {
+    ) -> CleanCategory? {
         switch phase {
         case .systemCaches:
-            return await scanSystemCaches(userEntries: preferences.safeListEntries)
+            return scanSystemCaches(userEntries: preferences.safeListEntries)
         case .browserCaches:
-            return await scanBrowserCaches(userEntries: preferences.safeListEntries)
+            return scanBrowserCaches(userEntries: preferences.safeListEntries)
         case .logs:
-            return await scanLogs(userEntries: preferences.safeListEntries)
+            return scanLogs(userEntries: preferences.safeListEntries)
         case .temporaryFiles:
-            return await scanTempFiles(preferences: preferences)
+            return scanTempFiles(preferences: preferences)
+        case .downloads:
+            return scanDownloads(userEntries: preferences.safeListEntries)
         case .xcodeData:
-            return await scanXcode(userEntries: preferences.safeListEntries)
+            return scanXcode(userEntries: preferences.safeListEntries)
         case .developerCaches:
-            return await scanDeveloperCaches(userEntries: preferences.safeListEntries)
+            return scanDeveloperCaches(userEntries: preferences.safeListEntries)
         case .dsStoreFiles:
-            return await scanDSStores(userEntries: preferences.safeListEntries)
+            return scanDSStores(userEntries: preferences.safeListEntries)
         case .dockerData:
-            return await scanDocker(userEntries: preferences.safeListEntries)
+            return scanDocker(userEntries: preferences.safeListEntries)
         case .homebrewExtended:
-            return await scanHomebrewExtended(userEntries: preferences.safeListEntries)
+            return scanHomebrewExtended(userEntries: preferences.safeListEntries)
         case .mailAttachments:
-            return await scanMailAttachments(userEntries: preferences.safeListEntries)
+            return scanMailAttachments(userEntries: preferences.safeListEntries)
         }
     }
 
-    func scanSystemCaches(userEntries: Set<String>) async -> CleanCategory {
+    func scanSystemCaches(userEntries: Set<String>) -> CleanCategory {
         let items = enumerateDirectories(
             at: locations.userCaches,
             excluding: Constants.protectedCacheIdentifiers,
@@ -171,7 +223,7 @@ actor FileScanner: ScanServing {
         )
     }
 
-    func scanBrowserCaches(userEntries: Set<String>) async -> CleanCategory {
+    func scanBrowserCaches(userEntries: Set<String>) -> CleanCategory {
         var items: [CleanableItem] = []
 
         let browserPaths: [(String, [URL])] = [
@@ -203,7 +255,7 @@ actor FileScanner: ScanServing {
         )
     }
 
-    func scanLogs(userEntries: Set<String>) async -> CleanCategory {
+    func scanLogs(userEntries: Set<String>) -> CleanCategory {
         var items: [CleanableItem] = []
 
         for path in [locations.userLogs, locations.systemLogs] {
@@ -228,7 +280,7 @@ actor FileScanner: ScanServing {
         )
     }
 
-    func scanTempFiles(preferences: AppPreferences) async -> CleanCategory {
+    func scanTempFiles(preferences: AppPreferences) -> CleanCategory {
         var items: [CleanableItem] = []
         let cutoff = Date().addingTimeInterval(-Double(preferences.minTempFileAgeHours) * 3600)
 
@@ -249,7 +301,25 @@ actor FileScanner: ScanServing {
         )
     }
 
-    func scanXcode(userEntries: Set<String>) async -> CleanCategory? {
+    func scanDownloads(userEntries: Set<String>) -> CleanCategory? {
+        guard let item = makeCleanableItem(
+            at: locations.downloads,
+            displayName: "Downloads Folder",
+            userEntries: userEntries
+        ) else {
+            return nil
+        }
+
+        return CleanCategory(
+            name: "Downloads",
+            icon: "arrow.down.circle",
+            description: "Awareness-only view of your Downloads folder",
+            items: [item],
+            defaultSelected: false
+        )
+    }
+
+    func scanXcode(userEntries: Set<String>) -> CleanCategory? {
         var items: [CleanableItem] = []
 
         if let item = makeCleanableItem(
@@ -277,7 +347,7 @@ actor FileScanner: ScanServing {
         )
     }
 
-    func scanDeveloperCaches(userEntries: Set<String>) async -> CleanCategory {
+    func scanDeveloperCaches(userEntries: Set<String>) -> CleanCategory {
         let caches: [(String, URL)] = [
             ("Swift Package Manager", locations.spmCache),
             ("CocoaPods", locations.cocoapodsCache),
@@ -306,7 +376,7 @@ actor FileScanner: ScanServing {
         )
     }
 
-    func scanDSStores(userEntries: Set<String>) async -> CleanCategory {
+    func scanDSStores(userEntries: Set<String>) -> CleanCategory {
         var items: [CleanableItem] = []
         let home = locations.home
         let skipDirs: Set<String> = [".Trash", "Library", ".git"]
@@ -353,12 +423,12 @@ actor FileScanner: ScanServing {
         )
     }
 
-    func scanDocker(userEntries: Set<String>) async -> CleanCategory? {
+    func scanDocker(userEntries: Set<String>) -> CleanCategory? {
         var items: [CleanableItem] = []
 
         let dockerPaths: [(String, URL)] = [
-            ("Docker VM Data", Constants.dockerData),
-            ("Docker Config", Constants.dockerConfig),
+            ("Docker VM Data", locations.dockerData),
+            ("Docker Config", locations.dockerConfig),
         ]
 
         for (name, path) in dockerPaths {
@@ -377,7 +447,7 @@ actor FileScanner: ScanServing {
         )
     }
 
-    func scanHomebrewExtended(userEntries: Set<String>) async -> CleanCategory? {
+    func scanHomebrewExtended(userEntries: Set<String>) -> CleanCategory? {
         var items: [CleanableItem] = []
 
         // Homebrew cache (downloads)
@@ -390,7 +460,7 @@ actor FileScanner: ScanServing {
         }
 
         // Old Cellar versions — report but don't auto-select
-        let cellar = Constants.homebrewCellar
+        let cellar = locations.homebrewCellar
         if fileManager.fileExists(atPath: cellar.path),
            let formulas = try? fileManager.contentsOfDirectory(
                at: cellar, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
@@ -427,7 +497,7 @@ actor FileScanner: ScanServing {
         )
     }
 
-    func scanMailAttachments(userEntries: Set<String>) async -> CleanCategory? {
+    func scanMailAttachments(userEntries: Set<String>) -> CleanCategory? {
         guard fileManager.isReadableFile(atPath: locations.mailAttachments.path),
               !ExclusionList.isExcluded(locations.mailAttachments, userEntries: userEntries)
         else {
@@ -598,6 +668,7 @@ private enum ScanPhase {
     case browserCaches
     case logs
     case temporaryFiles
+    case downloads
     case xcodeData
     case developerCaches
     case dsStoreFiles
@@ -611,6 +682,7 @@ private enum ScanPhase {
         case .browserCaches: return "Browser Caches"
         case .logs: return "System Logs"
         case .temporaryFiles: return "Temporary Files"
+        case .downloads: return "Downloads"
         case .xcodeData: return "Xcode Data"
         case .developerCaches: return "Developer Caches"
         case .dsStoreFiles: return ".DS_Store Files"

@@ -8,30 +8,18 @@ struct DockerHomebrewScanTests {
         let dir = try TestSupport.makeTempDirectory(prefix: "DockerScanTest")
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        // Create a scanner with locations pointing to empty temp dir
-        // Docker paths won't exist, so scanDocker should return nil
-        let scanner = FileScanner()
+        let scanner = FileScanner(locations: makeLocations(root: dir))
         let result = await scanner.scanDocker(userEntries: [])
-
-        // On most test machines Docker data won't be at the default path,
-        // but we can verify the method runs without error.
-        // If Docker IS installed, it returns a category; if not, nil.
-        // Either way is valid.
-        if let category = result {
-            #expect(category.name == "Docker Data")
-            #expect(!category.items.isEmpty)
-        }
+        #expect(result == nil)
     }
 
     @Test func homebrewScanReturnsNilWhenNotInstalled() async throws {
-        let scanner = FileScanner()
-        let result = await scanner.scanHomebrewExtended(userEntries: [])
+        let dir = try TestSupport.makeTempDirectory(prefix: "HomebrewScanTest")
+        defer { try? FileManager.default.removeItem(at: dir) }
 
-        if let category = result {
-            #expect(category.name == "Homebrew")
-            // Homebrew items should default to unselected
-            #expect(category.defaultSelected == false)
-        }
+        let scanner = FileScanner(locations: makeLocations(root: dir))
+        let result = await scanner.scanHomebrewExtended(userEntries: [])
+        #expect(result == nil)
     }
 
     @Test func homebrewCategoryDefaultsToUnselected() {
@@ -45,5 +33,39 @@ struct DockerHomebrewScanTests {
 
         #expect(category.isSelected == false)
         #expect(category.items[0].isSelected == false)
+    }
+
+    private func makeLocations(root: URL) -> FileScannerLocations {
+        let library = root.appendingPathComponent("Library")
+        let caches = library.appendingPathComponent("Caches")
+
+        return FileScannerLocations(
+            home: root,
+            userCaches: caches,
+            downloads: root.appendingPathComponent("Downloads"),
+            chromeCacheBase: caches.appendingPathComponent("Google/Chrome"),
+            firefoxCache: caches.appendingPathComponent("org.mozilla.firefox"),
+            safariCache: caches.appendingPathComponent("com.apple.Safari"),
+            arcCache: caches.appendingPathComponent("company.thebrowser.Browser"),
+            braveCacheBase: caches.appendingPathComponent("BraveSoftware/Brave-Browser"),
+            edgeCacheBase: caches.appendingPathComponent("com.microsoft.edgemac"),
+            userLogs: library.appendingPathComponent("Logs"),
+            systemLogs: root.appendingPathComponent("SystemLogs"),
+            diagnosticReports: library.appendingPathComponent("Logs/DiagnosticReports"),
+            userTmpDir: root.appendingPathComponent("tmp"),
+            systemTmp: root.appendingPathComponent("SystemTmp"),
+            xcodeDerivedData: library.appendingPathComponent("Developer/Xcode/DerivedData"),
+            xcodeArchives: library.appendingPathComponent("Developer/Xcode/Archives"),
+            spmCache: caches.appendingPathComponent("org.swift.swiftpm"),
+            cocoapodsCache: caches.appendingPathComponent("CocoaPods"),
+            homebrewCache: caches.appendingPathComponent("Homebrew"),
+            homebrewCellar: root.appendingPathComponent("Homebrew/Cellar"),
+            npmCache: root.appendingPathComponent(".npm/_cacache"),
+            yarnCache: caches.appendingPathComponent("Yarn"),
+            pipCache: caches.appendingPathComponent("pip"),
+            dockerData: library.appendingPathComponent("Containers/com.docker.docker/Data/vms"),
+            dockerConfig: root.appendingPathComponent(".docker"),
+            mailAttachments: library.appendingPathComponent("Containers/com.apple.mail/Data/Library/Mail Downloads")
+        )
     }
 }

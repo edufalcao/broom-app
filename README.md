@@ -10,6 +10,8 @@ A free, open-source macOS utility that helps you reclaim disk space and maintain
 - Temporary files (configurable age threshold, default 7 days)
 - Xcode derived data and archives
 - Developer caches (npm, pip, Homebrew, CocoaPods, SPM, Yarn)
+- Docker data and stale Homebrew versions
+- Downloads folder awareness (shown unselected)
 - .DS_Store files
 - Mail attachments
 - Orphaned app leftovers with confidence scoring
@@ -20,7 +22,13 @@ A free, open-source macOS utility that helps you reclaim disk space and maintain
 - See every associated file across Library directories (including launch agents/daemons)
 - Per-file selection — choose exactly what to remove
 - Drag-and-drop a .app onto the window to uninstall it
-- Running app detection with quit-before-uninstall flow
+- Running app detection with quit-before-uninstall flow and force-quit fallback
+
+**Large File Finder** - Find oversized files quickly:
+- Scan your home directory for files above 100 MB, 250 MB, 500 MB, or 1 GB
+- Sort by size, name, or modified date
+- Reveal any result in Finder
+- Selectively move large files to Trash
 
 **Settings:**
 - Launch at login
@@ -93,14 +101,15 @@ xcodebuild -scheme Broom -configuration Debug test
 | Cmd+Shift+S | Start scan |
 | Cmd+1 | Switch to System Cleaner |
 | Cmd+2 | Switch to App Uninstaller |
+| Cmd+3 | Switch to Large Files |
 | Cmd+, | Open Settings |
 | Cmd+Q | Quit |
 
 ## Architecture
 
-MVVM + Service Protocol Layer. Services are Swift actors communicating through protocols, enabling full dependency injection and mock-based testing. See [docs/engineering/architecture.md](docs/engineering/architecture.md) for details.
+MVVM + service protocol layer. Services handle file-system work behind testable interfaces, and the app uses Swift concurrency throughout the cleaner, uninstaller, and large-file flows. See [docs/engineering/architecture.md](docs/engineering/architecture.md) for details.
 
-**49 source files, 14 test files, ~39 tests** across scanner, cleaner, orphan detection, app inventory, uninstaller, preferences, and view model layers.
+**72 tests across 21 suites** cover scanner behavior, cleaner flows, orphan detection, app inventory, uninstall state, preferences, and view models.
 
 ## License
 

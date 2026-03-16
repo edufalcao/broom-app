@@ -3,7 +3,7 @@ import SwiftUI
 
 struct GeneralSettingsView: View {
     @AppStorage("launchAtLogin") private var launchAtLogin = false
-    @AppStorage("showNotifications") private var showNotifications = true
+    @AppStorage("showNotifications") private var showNotifications = AppPreferences.defaultShowNotifications
 
     var body: some View {
         Form {

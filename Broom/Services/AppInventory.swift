@@ -1,11 +1,12 @@
 import AppKit
-import Foundation
+@preconcurrency import Foundation
 
 struct AppInventoryLocations {
     let applicationDirectories: [URL]
     let librarySearchDirectories: [(String, URL)]
     let preferencesDirectory: URL
     let launchAgentDirectories: [(String, URL)]
+    let supplementalApplicationURLsProvider: @Sendable () async -> [URL]
 
     static let live = AppInventoryLocations(
         applicationDirectories: Constants.applicationDirectories,
@@ -24,7 +25,10 @@ struct AppInventoryLocations {
             ("Launch Agents", Constants.userLaunchAgents),
             ("Launch Agents", Constants.systemLaunchAgents),
             ("Launch Daemons", Constants.systemLaunchDaemons),
-        ]
+        ],
+        supplementalApplicationURLsProvider: {
+            await AppInventory.querySpotlightAppURLs()
+        }
     )
 }
 
@@ -40,9 +44,23 @@ actor AppInventory: AppInventoryServing {
 
     func loadAllApps() async -> [InstalledApp] {
         var apps: [InstalledApp] = []
+        var seenPaths = Set<String>()
 
         for dir in locations.applicationDirectories {
-            apps.append(contentsOf: enumerateApps(in: dir))
+            for app in enumerateApps(in: dir) {
+                let path = app.bundlePath.standardizedFileURL.path
+                if seenPaths.insert(path).inserted {
+                    apps.append(app)
+                }
+            }
+        }
+
+        for url in await locations.supplementalApplicationURLsProvider() {
+            guard let app = parseApp(at: url) else { continue }
+            let path = app.bundlePath.standardizedFileURL.path
+            if seenPaths.insert(path).inserted {
+                apps.append(app)
+            }
         }
 
         var enrichedApps: [InstalledApp] = []
@@ -66,6 +84,12 @@ actor AppInventory: AppInventoryServing {
         for dir in locations.applicationDirectories {
             let apps = enumerateApps(in: dir)
             ids.formUnion(apps.map { $0.bundleIdentifier.lowercased() })
+        }
+
+        for url in await locations.supplementalApplicationURLsProvider() {
+            if let app = parseApp(at: url) {
+                ids.insert(app.bundleIdentifier.lowercased())
+            }
         }
 
         return ids
@@ -347,6 +371,53 @@ actor AppInventory: AppInventoryServing {
             return dictionary.values.flatMap(stringValues(in:))
         default:
             return []
+        }
+    }
+
+    static func querySpotlightAppURLs() async -> [URL] {
+        await withCheckedContinuation { continuation in
+            let query = NSMetadataQuery()
+            query.predicate = NSPredicate(format: "kMDItemContentType == 'com.apple.application-bundle'")
+            query.searchScopes = [NSMetadataQueryLocalComputerScope]
+
+            var didResume = false
+            var observer: NSObjectProtocol?
+
+            func finish(_ urls: [URL]) {
+                guard !didResume else { return }
+                didResume = true
+                if let observer { NotificationCenter.default.removeObserver(observer) }
+                continuation.resume(returning: urls)
+            }
+
+            observer = NotificationCenter.default.addObserver(
+                forName: .NSMetadataQueryDidFinishGathering,
+                object: query,
+                queue: .main
+            ) { _ in
+                query.stop()
+
+                var urls: [URL] = []
+                for index in 0..<query.resultCount {
+                    guard let result = query.result(at: index) as? NSMetadataItem,
+                          let path = result.value(forAttribute: kMDItemPath as String) as? String
+                    else { continue }
+                    urls.append(URL(fileURLWithPath: path))
+                }
+
+                finish(urls)
+            }
+
+            DispatchQueue.main.async {
+                query.start()
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                if query.isGathering {
+                    query.stop()
+                    finish([])
+                }
+            }
         }
     }
 }

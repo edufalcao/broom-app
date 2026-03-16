@@ -2,6 +2,8 @@ import AppKit
 import SwiftUI
 
 struct AboutSettingsView: View {
+    private let repositoryURL = URL(string: "https://github.com/edufalcao/broom-app")
+
     private var version: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ReleaseNotes.currentVersion
     }
@@ -31,6 +33,15 @@ struct AboutSettingsView: View {
                         .foregroundStyle(.secondary)
 
                     Text("License: MIT")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+
+                    if let repositoryURL {
+                        Link("GitHub Repository", destination: repositoryURL)
+                            .font(.caption)
+                    }
+
+                    Text("Created by Eduardo")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }

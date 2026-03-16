@@ -2,6 +2,18 @@ import AppKit
 import Foundation
 import SwiftUI
 
+struct RunningAppController {
+    let isRunning: (String) -> Bool
+    let terminate: (String) -> Bool
+    let forceTerminate: (String) -> Bool
+
+    static let live = RunningAppController(
+        isRunning: RunningAppDetector.isRunning(bundleIdentifier:),
+        terminate: RunningAppDetector.terminate(bundleIdentifier:),
+        forceTerminate: RunningAppDetector.forceTerminate(bundleIdentifier:)
+    )
+}
+
 @MainActor
 @Observable
 class UninstallerViewModel {
@@ -36,22 +48,26 @@ class UninstallerViewModel {
     var uninstallPlan: UninstallPlan?
     var showUninstallConfirmation = false
     var showRunningAppAlert = false
+    var showForceQuitAlert = false
     var moveToTrashForUninstall: Bool
 
     private let appInventory: AppInventoryServing
     private let appUninstaller: AppUninstalling
     private let preferencesProvider: () -> AppPreferences
+    private let runningAppController: RunningAppController
     private var loadTask: Task<Void, Never>?
 
     init(
         appInventory: AppInventoryServing? = nil,
         appUninstaller: AppUninstalling? = nil,
-        preferencesProvider: @escaping () -> AppPreferences = { AppPreferences() }
+        preferencesProvider: @escaping () -> AppPreferences = { AppPreferences() },
+        runningAppController: RunningAppController = .live
     ) {
         let inventory = appInventory ?? AppInventory()
         self.appInventory = inventory
         self.appUninstaller = appUninstaller ?? AppUninstaller(appInventory: inventory)
         self.preferencesProvider = preferencesProvider
+        self.runningAppController = runningAppController
         self.moveToTrashForUninstall = preferencesProvider().moveToTrash
     }
 
@@ -150,13 +166,40 @@ class UninstallerViewModel {
 
     func quitAndUninstall() {
         guard let plan = uninstallPlan else { return }
-        _ = RunningAppDetector.terminate(bundleIdentifier: plan.app.bundleIdentifier)
+        let bundleIdentifier = plan.app.bundleIdentifier
+        guard runningAppController.terminate(bundleIdentifier) else {
+            showRunningAppAlert = false
+            showForceQuitAlert = true
+            return
+        }
 
         // Give the app a moment to quit, then show confirmation
         Task {
             try? await Task.sleep(for: .seconds(2))
             showRunningAppAlert = false
-            showUninstallConfirmation = true
+
+            if runningAppController.isRunning(bundleIdentifier) {
+                showForceQuitAlert = true
+            } else {
+                showUninstallConfirmation = true
+            }
+        }
+    }
+
+    func forceQuitAndUninstall() {
+        guard let plan = uninstallPlan else { return }
+        let bundleIdentifier = plan.app.bundleIdentifier
+        _ = runningAppController.forceTerminate(bundleIdentifier)
+
+        Task {
+            try? await Task.sleep(for: .seconds(1))
+            showForceQuitAlert = false
+
+            if runningAppController.isRunning(bundleIdentifier) {
+                cancelUninstall()
+            } else {
+                showUninstallConfirmation = true
+            }
         }
     }
 
@@ -223,6 +266,7 @@ class UninstallerViewModel {
     func cancelUninstall() {
         showUninstallConfirmation = false
         showRunningAppAlert = false
+        showForceQuitAlert = false
         uninstallPlan = nil
         moveToTrashForUninstall = preferencesProvider().moveToTrash
     }

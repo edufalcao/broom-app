@@ -1,4 +1,4 @@
-import Foundation
+@preconcurrency import Foundation
 
 struct OrphanDetectorLocations {
     let librarySubdirectories: [URL]
@@ -34,7 +34,8 @@ actor OrphanDetector: OrphanDetecting {
         let receiptBundleIDs = loadReceiptBundleIDs()
         let spotlightBundleIDs = await querySpotlightBundleIDs()
 
-        // Combine all known bundle IDs: installed + receipts + Spotlight
+        // Only installed apps suppress orphan candidates.
+        // Receipt and Spotlight signals are reserved for confidence scoring.
         let allKnownIDs = installedIDs
 
         var orphanMap: [String: [CleanableItem]] = [:]
@@ -163,7 +164,16 @@ actor OrphanDetector: OrphanDetecting {
             query.searchScopes = [NSMetadataQueryLocalComputerScope]
             query.valueListAttributes = [kMDItemCFBundleIdentifier as String]
 
+            var didResume = false
             var observer: NSObjectProtocol?
+
+            func finish(_ ids: Set<String>) {
+                guard !didResume else { return }
+                didResume = true
+                if let observer { NotificationCenter.default.removeObserver(observer) }
+                continuation.resume(returning: ids)
+            }
+
             observer = NotificationCenter.default.addObserver(
                 forName: .NSMetadataQueryDidFinishGathering,
                 object: query,
@@ -177,8 +187,7 @@ actor OrphanDetector: OrphanDetecting {
                         ids.insert(bundleID.lowercased())
                     }
                 }
-                if let observer { NotificationCenter.default.removeObserver(observer) }
-                continuation.resume(returning: ids)
+                finish(ids)
             }
 
             DispatchQueue.main.async {
@@ -189,8 +198,7 @@ actor OrphanDetector: OrphanDetecting {
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
                 if query.isGathering {
                     query.stop()
-                    if let observer { NotificationCenter.default.removeObserver(observer) }
-                    continuation.resume(returning: [])
+                    finish([])
                 }
             }
         }

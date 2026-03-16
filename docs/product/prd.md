@@ -1,9 +1,9 @@
 # Broom — Product Requirements Document
 
-> **Version:** 1.1.0
+> **Version:** 1.3.0
 > **Author:** Eduardo
 > **Date:** 2026-03-15
-> **Status:** Implemented (v1.1.0 shipped)
+> **Status:** Implemented (v1.3.0 current)
 
 ---
 
@@ -55,7 +55,7 @@ A lightweight, trustworthy system cleaner with a standard macOS window, clear pr
 | **Browser Caches — Edge** | `~/Library/Caches/com.microsoft.edgemac/` | Chromium-based. |
 | **System Logs** | `~/Library/Logs/`, `/Library/Logs/` | Log files accumulate indefinitely. Safe to delete. |
 | **Crash Reports** | `~/Library/Logs/DiagnosticReports/` | Old crash reports. Safe to delete. |
-| **Temporary Files** | User's `$TMPDIR`, `/tmp/` | OS-managed temp dirs. Only delete files older than 24 hours. |
+| **Temporary Files** | User's `$TMPDIR`, `/tmp/` | OS-managed temp dirs. Only delete files older than 7 days by default (configurable). |
 | **Xcode Derived Data** | `~/Library/Developer/Xcode/DerivedData/` | Often 10-50+ GB for active developers. Only shown if directory exists. |
 | **Xcode Archives** | `~/Library/Developer/Xcode/Archives/` | Old build archives. Only shown if directory exists. |
 | **Swift Package Manager Cache** | `~/Library/Caches/org.swift.swiftpm/` | SPM downloaded packages. |
@@ -71,7 +71,7 @@ A lightweight, trustworthy system cleaner with a standard macOS window, clear pr
 #### 2.1.2 Scan Behavior
 
 - Scan runs asynchronously using Swift concurrency (`async`/`await` with `TaskGroup`)
-- Each category scans in parallel for performance
+- Each category scans in parallel for performance, then results are reassembled into a stable display order
 - Progress indicator shows which category is currently being scanned
 - Scan results are cached in memory until the user dismisses or re-scans
 - Size calculation uses `totalFileAllocatedSizeKey` for accuracy (accounts for sparse files, compression)
@@ -158,7 +158,7 @@ Each orphan gets a confidence score to help users decide:
 #### 2.3.1 How It Works
 
 1. **App List View:**
-   - Show all installed apps from `/Applications/` and `~/Applications/`
+   - Show all installed apps from `/Applications/`, `~/Applications/`, and Spotlight-supplemented non-standard locations
    - Display for each: app icon, name, version, bundle size, total size (including Library files)
    - Sort options: name, size (total), last used date
    - Search/filter bar
@@ -176,7 +176,6 @@ Each orphan gets a confidence score to help users decide:
      - `~/Library/WebKit/<bundleID>/`
      - `~/Library/HTTPStorages/<bundleID>/`
      - `~/Library/Logs/<bundleID>/` or `~/Library/Logs/<appName>/`
-     - Login items registered by the app
      - LaunchAgents/LaunchDaemons (`~/Library/LaunchAgents/`, `/Library/LaunchAgents/`)
    - Show individual sizes for each location
    - Show total size that will be freed
@@ -225,16 +224,41 @@ Strategy 4: LaunchAgent/LaunchDaemon discovery
 
 ---
 
+### 2.4 Feature F4: Large File Finder
+
+**Priority:** P1
+**Description:** Scan the user's home directory for oversized files that are worth reviewing separately from cleaner categories.
+
+#### 2.4.1 Scan Behavior
+
+- Scan `~/` recursively for regular files above a configurable threshold
+- Supported thresholds: 100 MB, 250 MB, 500 MB, and 1 GB
+- Skip known noise directories such as `~/Library/`, `~/Library/Caches/`, `~/.Trash/`, `.git/`, `node_modules/`, `.build/`, `Pods/`, `DerivedData/`, and `.cache/`
+- Show results as a flat list with name, directory, size, and modified date
+- Default sort: size descending
+- Alternate sorts: name and modified date
+- Files start **unselected**; the user explicitly chooses what to move to Trash
+- Each result can be revealed in Finder before cleanup
+
+#### 2.4.2 Cleanup Behavior
+
+- Large-file cleanup always moves selected files to Trash
+- This flow is intentionally separate from the system cleaner so users can review large personal files without mixing them into cache-oriented categories
+- The final summary shows bytes freed and number of files moved
+
+---
+
 ## 3. User Interface
 
 ### 3.1 Application Window
 
 - Standard macOS desktop app with Dock icon
 - Single main window with sidebar navigation
-- Two main sections accessible via sidebar: **System Cleaner** and **App Uninstaller**
+- Three main sections accessible via sidebar: **System Cleaner**, **App Uninstaller**, and **Large File Finder**
 - Default window size: 750x520, minimum: 650x450
 - Toolbar contains: settings gear button, window title
 - Standard window chrome (close, minimize, zoom)
+- After a scan completes, the Dock icon shows the current junk total as a badge until the result is cleaned or reset
 
 ### 3.2 Main Window Layout
 
@@ -413,24 +437,24 @@ Accessed via the toolbar/gear affordance or `Cmd+,`. Implemented as a standard m
 
 **General Tab:**
 - Launch at login (toggle, uses `SMAppService`)
-- Show scan results notification (toggle)
+- Show scan results notification (toggle, enabled by default)
 
 **Cleaning Tab:**
 - Default action: Move to Trash / Delete permanently (picker, default: Trash)
 - Skip caches for currently running apps (toggle, default: on)
-- Minimum file age for temp files (stepper, default: 24 hours)
+- Minimum file age for temp files (picker, default: 7 days)
 - Show developer caches (Xcode, npm, pip, etc.) (toggle, default: on)
 
 **Safe List Tab:**
 - List of paths/bundle IDs that will never be flagged
 - Add/remove buttons
-- Import/export as JSON
+- Stored as JSON in `~/Library/Application Support/Broom/safelist.json`
 
 **About Tab:**
-- Version number
+- Version and build number
 - GitHub link
 - License (MIT)
-- Credits
+- Credits and in-app release notes
 
 ### 3.4 Notifications
 
@@ -443,7 +467,7 @@ Accessed via the toolbar/gear affordance or `Cmd+,`. Implemented as a standard m
 - The main window (specifically the App Uninstaller content area) accepts `.app` file drops
 - When a `.app` is dropped, the uninstaller view activates with that app pre-selected
 - The Dock icon also accepts `.app` file drops, switching to the uninstaller view on drop
-- Uses `.onDrop(of:)` SwiftUI modifier for the window, and `NSApplicationDelegate` for Dock drops
+- Uses `.dropDestination(for: URL.self)` in SwiftUI for the window, and `NSApplicationDelegate` for Dock drops
 
 ---
 
@@ -566,10 +590,10 @@ broom-app/
 │   ├── BroomApp.swift
 │   ├── Models/
 │   ├── ViewModels/
-│   ├── Views/               # MainWindow, Cleaner/, Uninstaller/, Settings/, Components/
+│   ├── Views/               # MainWindow, Cleaner/, Uninstaller/, LargeFiles/, Settings/, Components/
 │   ├── Services/
 │   ├── Utilities/
-│   └── Resources/
+│   └── Assets.xcassets/
 ├── BroomTests/               # Unit tests
 ├── docs/                     # Documentation (this file, architecture, etc.)
 ├── scripts/                  # Build, package, release scripts
@@ -597,16 +621,12 @@ These features are planned for future versions.
 
 | Feature | Version | Description |
 |---------|---------|-------------|
-| **Large File Finder** | v1.2 | Scan home directory for files > 100MB, sorted by size |
-| **Duplicate File Finder** | v1.3 | Content-hash-based duplicate detection |
-| **Disk Usage Visualization** | v1.4 | Treemap or sunburst chart of disk usage |
-| **Scheduled Cleaning** | v1.2 | Run scans on a schedule (weekly/monthly) with notification |
-| **CLI Interface** | v1.2 | `broom scan`, `broom clean` for terminal users |
-| **Localization** | v1.3 | Multi-language support |
-| **Docker Cleanup** | v1.2 | Remove unused Docker images, containers, volumes |
-| **Homebrew Cleanup** | v1.2 | Remove old formula versions, clean cache |
-| **Dock Icon Badge** | v1.2 | Show junk size on Dock icon after scan |
-| **Auto-Update (Sparkle)** | v1.2 | In-app update checking and installation |
+| **Duplicate File Finder** | v1.4 | Content-hash-based duplicate detection |
+| **Scheduled Cleaning** | v1.4 | Run scans on a schedule (weekly/monthly) with notification |
+| **Auto-Update (Sparkle)** | v1.4 | In-app update checking and installation |
+| **Disk Usage Visualization** | v1.5 | Treemap or sunburst chart of disk usage |
+| **CLI Interface** | v1.5 | `broom scan`, `broom clean` for terminal users |
+| **Localization** | v1.5 | Multi-language support |
 
 ---
 

@@ -8,41 +8,39 @@ struct ReleaseNoteSection: Identifiable {
 }
 
 enum ReleaseNotes {
-    static let currentVersion = "1.2.1"
-    static let previousVersion = "1.2.0"
+    static let currentVersion = "1.3.0"
+    static let previousVersion = "1.2.1"
     static let currentReleaseDate = "2026-03-15"
 
     static let sections: [ReleaseNoteSection] = [
         ReleaseNoteSection(
-            title: "Settings & Navigation",
+            title: "Cleaner Defaults & Coverage",
             items: [
-                "Settings now opens as a native macOS Settings window (Cmd+,).",
-                "Toolbar gear button uses SettingsLink for standard macOS behavior.",
-                "Category drill-in uses NavigationStack for proper push/pop transitions.",
+                "Default temporary-file age is now consistently 7 days across runtime, settings, and docs.",
+                "Notifications now default to enabled on first launch instead of silently staying off until toggled.",
+                "Downloads appears as an awareness-only cleaner category and starts unselected.",
+                "System scans now execute categories concurrently while preserving stable result ordering.",
             ]
         ),
         ReleaseNoteSection(
-            title: "Accessibility & Polish",
+            title: "Uninstaller & Inventory",
             items: [
-                "Category rows are now proper Buttons for full VoiceOver and keyboard support.",
-                "Smooth fade animations on all state transitions (scan, clean, done).",
-                "Clean complete screen shows correct action (Trash vs permanently deleted).",
-                "Uninstall confirmation sheet adapts to content height.",
+                "Installed-app inventory now supports Spotlight-supplemented discovery for apps outside standard folders.",
+                "Running app uninstall flow now offers a force-quit fallback when a normal quit does not work.",
+                "About settings now include a GitHub link and author credit.",
             ]
         ),
         ReleaseNoteSection(
-            title: "Architecture",
+            title: "Documentation & Safety",
             items: [
-                "Replaced NotificationCenter with type-safe AppRouter for cross-component actions.",
-                "Added @MainActor to UninstallerViewModel for concurrency safety.",
-                "Large Files scanner now supports dependency injection for testability.",
-                "Cached date formatters in list rows for better scroll performance.",
+                "README, PRD, architecture, and implementation status docs now reflect the current sidebar and cleaner behavior.",
+                "Categories that default to unselected now correctly start with every item unselected as well.",
             ]
         ),
         ReleaseNoteSection(
             title: "Quality",
             items: [
-                "65 tests across 20 suites.",
+                "72 tests across 21 suites.",
             ]
         ),
     ]

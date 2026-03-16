@@ -4,6 +4,23 @@ All notable changes to Broom will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-03-15
+
+### Added
+- Downloads awareness category in System Cleaner, shown unselected by default
+- Spotlight-supplemented app inventory for apps outside standard application folders
+- Force Quit and Uninstall fallback for running apps that do not terminate cleanly
+- GitHub repository link and author credit in the About settings tab
+- 7 new tests covering downloads scanning, stable parallel scan ordering, notification defaults, Spotlight app inventory, and force-quit uninstall fallback
+- 72 tests across 21 suites
+
+### Changed
+- Temporary-file cleanup default is now consistently 7 days across runtime, settings, and docs
+- Notifications now default to enabled on first launch
+- Cleaner scans now run category work concurrently while preserving deterministic category ordering in results
+- Categories with `defaultSelected = false` now initialize every item as unselected
+- Evergreen docs updated to reflect the current feature set and sidebar
+
 ## [1.2.1] - 2026-03-15
 
 ### Changed

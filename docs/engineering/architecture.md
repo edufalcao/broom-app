@@ -1,6 +1,6 @@
 # Broom — Technical Architecture
 
-> **Version:** 1.1.0
+> **Version:** 1.3.0
 > **Date:** 2026-03-15
 
 ---
@@ -9,38 +9,48 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
+│                          App Layer                           │
+│                                                              │
+│  BroomApp ──── AppDelegate ──── AppRouter                    │
+│                                                              │
+│  Owns the app scenes, menu commands, Dock drop handling,     │
+│  and cross-section routing inside the main window.           │
+├──────────────────────────────────────────────────────────────┤
 │                        SwiftUI Layer                         │
 │                                                              │
 │  MainWindow ──── CleanerView ──── ScanResultsView            │
 │  UninstallerView ──── AppDetailView ──── SettingsView        │
-│  UninstallConfirmView                                        │
+│  LargeFilesView ──── UninstallConfirmView                    │
 │                                                              │
+│  One desktop-style window with three sidebar sections plus   │
+│  a separate Settings scene.                                  │
 ├──────────────────────────────────────────────────────────────┤
 │                      ViewModel Layer                         │
 │                                                              │
-│  ScanViewModel ──── UninstallerViewModel                     │
+│  ScanViewModel ──── UninstallerViewModel ────                │
+│  LargeFilesViewModel                                         │
 │                                                              │
 │  @MainActor @Observable classes. State machines driving UI.  │
-│  No file system access — delegates to services via protocols.│
-│                                                              │
+│  Heavy I/O stays in services; UI state and orchestration     │
+│  live here.                                                  │
 ├──────────────────────────────────────────────────────────────┤
-│                    Service Protocol Layer                     │
+│                    Service Protocol Layer                    │
 │                                                              │
 │  ScanServing ──── CleanServing ──── AppInventoryServing      │
-│  OrphanDetecting ──── AppUninstalling                        │
+│  OrphanDetecting ──── AppUninstalling ────                   │
+│  LargeFileScanning                                           │
 │                                                              │
-│  Protocols enabling dependency injection and testing.        │
-│                                                              │
+│  Protocols enable dependency injection and test isolation.   │
 ├──────────────────────────────────────────────────────────────┤
-│                   Service Implementation Layer                │
+│                 Service Implementation Layer                 │
 │                                                              │
 │  FileScanner ──── FileCleaner ──── AppInventory              │
-│  OrphanDetector ──── AppUninstaller ──── PermissionChecker   │
-│  RunningAppDetector ──── NotificationManager                 │
+│  OrphanDetector ──── AppUninstaller ──── LargeFileScanner    │
+│  PermissionChecker ──── RunningAppDetector ────              │
+│  NotificationManager                                         │
 │                                                              │
-│  Swift actors for thread safety. Receive AppPreferences      │
-│  via injection. File system operations isolated here.        │
-│                                                              │
+│  Actors isolate file-system work and Spotlight-backed scans. │
+│  Preferences are injected as value snapshots.                │
 ├──────────────────────────────────────────────────────────────┤
 │                      Foundation Layer                        │
 │                                                              │
@@ -48,17 +58,17 @@
 │  ExclusionList ──── BundleIDMatcher ──── AppPreferences      │
 │  ReleaseNotes                                                │
 │                                                              │
-│  Stateless utilities. Pure functions where possible.         │
+│  Stateless helpers and small value types shared everywhere.  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 **Why MVVM + Service Protocols?**
-- MVVM is the standard SwiftUI pattern — community resources and tutorials are abundant
-- The service protocol layer separates file system operations from business logic
-- Services are `actor`-typed, making concurrency safe without manual locking
-- ViewModels communicate with services exclusively through protocols, enabling full mock-based testing
-- `AppPreferences` is injected into services, keeping preferences out of global state
-- This layering makes unit testing straightforward: mock services, test ViewModels
+- MVVM keeps SwiftUI state transitions explicit and easy to test.
+- The service protocol layer separates file-system and Spotlight work from UI orchestration.
+- Services are mostly `actor`-typed, so concurrency stays safe without manual locking.
+- ViewModels communicate through protocols, which keeps tests focused and cheap.
+- `AppPreferences` is passed into services as a value snapshot, avoiding hidden global state.
+- `AppRouter` centralizes cross-window actions such as keyboard shortcuts and Dock `.app` drops.
 
 ---
 
@@ -66,99 +76,81 @@
 
 ```
 Broom/
-├── BroomApp.swift                          # @main entry point
-├── Info.plist                              # Version, bundle ID
-├── Broom.entitlements                      # app-sandbox=false
-├── Assets.xcassets/                        # App icon, accent color
+├── BroomApp.swift                          # App scene setup, AppDelegate, AppRouter
+├── Info.plist                              # Versioning, document types, bundle metadata
+├── Broom.entitlements                      # Non-sandboxed desktop app
+├── Assets.xcassets/                        # App icon and asset catalog
 │
 ├── Models/
-│   ├── CleanableItem.swift                 # Single file/directory that can be cleaned
-│   ├── CleanCategory.swift                 # Grouping of cleanable items (e.g., "System Caches")
-│   ├── ScanResult.swift                    # Full scan output with all categories
-│   ├── OrphanedApp.swift                   # Detected orphan with all its locations
-│   ├── InstalledApp.swift                  # Represents an installed application
-│   └── CleanReport.swift                   # Post-clean summary (freed bytes, errors)
+│   ├── CleanableItem.swift                 # Single file or directory candidate
+│   ├── CleanCategory.swift                 # Group of cleaner items
+│   ├── ScanResult.swift                    # Cleaner scan result snapshot
+│   ├── OrphanedApp.swift                   # Orphan grouping + confidence
+│   ├── InstalledApp.swift                  # Installed app + associated files
+│   ├── LargeFile.swift                     # Large-file finder result
+│   └── CleanReport.swift                   # Post-clean/uninstall summary
 │
 ├── ViewModels/
-│   ├── ScanViewModel.swift                 # @MainActor: scan/clean flow with running app detection
-│   └── UninstallerViewModel.swift          # @MainActor: app list, uninstall, drag-and-drop
+│   ├── ScanViewModel.swift                 # Cleaner scan, selection, clean flow, Dock badge
+│   ├── UninstallerViewModel.swift          # App list, uninstall preview, quit/force-quit flow
+│   └── LargeFilesViewModel.swift           # Large-file scan, sort, reveal, clean flow
 │
 ├── Views/
-│   ├── MainWindow.swift                    # Top-level NavigationSplitView with inline sidebar content
-│   │
-│   ├── Cleaner/
-│   │   ├── CleanerView.swift               # Main cleaner content, state router
-│   │   ├── IdleView.swift                  # Start scan button, last scan info
-│   │   ├── ScanningView.swift              # Progress indicator during scan
-│   │   ├── ScanResultsView.swift           # Category list with sizes and toggles
-│   │   ├── CategoryDetailView.swift        # Drilldown into a single category
-│   │   ├── CleanProgressView.swift         # Progress bar during clean operation
-│   │   └── CleanDoneView.swift             # Summary after clean completes
-│   │
-│   ├── Uninstaller/
-│   │   ├── UninstallerView.swift           # App uninstaller content (nested split view)
-│   │   ├── AppListView.swift               # Left panel: list of installed apps
-│   │   ├── AppRowView.swift                # Single app row in the list
-│   │   ├── AppDetailView.swift             # Right panel: app files breakdown
-│   │   └── UninstallConfirmView.swift      # Confirmation sheet with per-file selection
-│   │
-│   ├── Settings/
-│   │   ├── SettingsView.swift              # TabView with General, Cleaning, Safe List, About
-│   │   ├── GeneralSettingsView.swift       # Launch at login, notifications
-│   │   ├── CleaningSettingsView.swift      # Trash vs delete, running app behavior
-│   │   ├── SafeListSettingsView.swift      # Manage exclusion paths
-│   │   └── AboutSettingsView.swift         # Version, links, credits
-│   │
-│   └── Components/
-│       ├── CategoryRowView.swift           # Reusable: icon + name + size + chevron + toggle
-│       ├── SizeLabel.swift                 # Formatted byte count display
-│       ├── PermissionBanner.swift          # FDA not granted warning
-│       ├── ConfidenceBadge.swift           # High/Medium/Low confidence indicator
-│       ├── AppIconView.swift               # Loads app icon from bundle
-│       └── EmptyStateView.swift            # "No junk found" / "No orphans" states
+│   ├── MainWindow.swift                    # Main NavigationSplitView and routing
+│   ├── Cleaner/                            # Cleaner states and drill-down views
+│   ├── LargeFiles/                         # Large-file finder list and rows
+│   ├── Uninstaller/                        # App list/detail/uninstall confirmation
+│   ├── Settings/                           # Native macOS Settings tabs
+│   └── Components/                         # Shared rows, badges, banners, empty states
 │
 ├── Services/
-│   ├── ServiceProtocols.swift              # Protocol definitions (ScanServing, CleanServing, etc.)
-│   ├── FileScanner.swift                   # Scans all target directories, respects preferences
-│   ├── FileCleaner.swift                   # Moves files to Trash or deletes permanently
-│   ├── AppInventory.swift                  # Enumerates apps, finds associated files + launch agents
-│   ├── OrphanDetector.swift                # Detects orphaned Library files with confidence scoring
-│   ├── AppUninstaller.swift                # Removes app bundle + all associated files
-│   ├── PermissionChecker.swift             # Checks Full Disk Access status (POSIX open)
-│   ├── RunningAppDetector.swift            # Detects running apps, matches to cache paths
-│   └── NotificationManager.swift           # Post-scan/clean notifications via UserNotifications
+│   ├── ServiceProtocols.swift              # Dependency-injected service interfaces
+│   ├── FileScanner.swift                   # Parallel cleaner category scanning
+│   ├── FileCleaner.swift                   # Trash or permanent-delete execution
+│   ├── AppInventory.swift                  # Standard + Spotlight app discovery
+│   ├── OrphanDetector.swift                # Library leftover detection + confidence
+│   ├── AppUninstaller.swift                # Uninstall plan creation + execution
+│   ├── LargeFileScanner.swift              # Recursive home-directory large-file scan
+│   ├── PermissionChecker.swift             # Full Disk Access checks and prompts
+│   ├── RunningAppDetector.swift            # Running-app matching and termination helpers
+│   └── NotificationManager.swift           # Notification permission and delivery
 │
-├── Utilities/
-│   ├── Constants.swift                     # All scan target paths, protected prefixes
-│   ├── SizeFormatter.swift                 # ByteCountFormatter wrapper
-│   ├── BundleIDMatcher.swift               # Logic for matching bundle IDs to directory names
-│   ├── ExclusionList.swift                 # Manages hardcoded + user-defined safe list exclusions
-│   ├── SafeDelete.swift                    # trashItem wrapper with error handling
-│   ├── Logger.swift                        # os.Logger wrapper
-│   ├── AppPreferences.swift                # Sendable preferences struct loaded from UserDefaults
-│   └── ReleaseNotes.swift                  # Structured in-app release notes
-│
-└── Resources/
-    └── Assets.xcassets/                    # App icon, accent color
+└── Utilities/
+    ├── Constants.swift                     # Scan paths and protected locations
+    ├── SizeFormatter.swift                 # ByteCountFormatter wrapper
+    ├── BundleIDMatcher.swift               # Bundle-ID and app-name matching
+    ├── ExclusionList.swift                 # Hardcoded + user safe list logic
+    ├── SafeDelete.swift                    # Trash/delete helpers with Result output
+    ├── Logger.swift                        # os.Logger categories
+    ├── AppPreferences.swift                # Sendable preference snapshot + defaults
+    └── ReleaseNotes.swift                  # In-app release note content
 ```
 
 ```
 BroomTests/
-├── TestSupport.swift                       # Shared mocks and test helpers
-├── SizeFormatterTests.swift
-├── ModelTests.swift
-├── BundleIDMatcherTests.swift
-├── FileScannerTests.swift
-├── OrphanDetectorTests.swift
+├── TestSupport.swift                       # Shared mocks and helpers
 ├── AppInventoryTests.swift
+├── AppPreferencesTests.swift
+├── AppRouterTests.swift
 ├── AppUninstallerTests.swift
-├── FileCleanerTests.swift
-├── ScanViewModelTests.swift
-├── UninstallerViewModelTests.swift
+├── BundleIDMatcherTests.swift
+├── DockerHomebrewScanTests.swift
 ├── ExclusionListTests.swift
+├── FileCleanerTests.swift
+├── FileScannerTests.swift
+├── LargeFileScannerTests.swift
+├── LargeFilesViewModelTests.swift
+├── ModelTests.swift
+├── NotificationManagerTests.swift
+├── OrphanCategoryTests.swift
+├── OrphanDetectorTests.swift
 ├── RunningAppDetectorTests.swift
-└── AppPreferencesTests.swift
+├── ScanViewModelTests.swift
+├── SizeFormatterTests.swift
+└── UninstallerViewModelTests.swift
 ```
+
+The current suite runs 72 tests across 21 suites.
 
 ---
 
@@ -211,26 +203,16 @@ The output of a full system scan.
 
 ```swift
 struct ScanResult {
-    let categories: [CleanCategory]
-    let orphanedApps: [OrphanedApp]
+    var categories: [CleanCategory]
+    var orphanedApps: [OrphanedApp]
     let scanDuration: TimeInterval
     let scanDate: Date
 
     // Computed
-    var totalSize: Int64 {
-        categories.reduce(0) { $0 + $1.totalSize } +
-        orphanedApps.reduce(0) { $0 + $1.totalSize }
-    }
-
-    var selectedSize: Int64 {
-        categories.reduce(0) { $0 + $1.selectedSize } +
-        orphanedApps.reduce(0) { $0 + $1.selectedSize }
-    }
-
-    var totalItems: Int {
-        categories.reduce(0) { $0 + $1.itemCount } +
-        orphanedApps.reduce(0) { $0 + $1.locationCount }
-    }
+    var totalSize: Int64 { categories.reduce(0) { $0 + $1.totalSize } }
+    var selectedSize: Int64 { categories.reduce(0) { $0 + $1.selectedSize } }
+    var totalItems: Int { categories.reduce(0) { $0 + $1.itemCount } }
+    var selectedItems: Int { categories.reduce(0) { $0 + $1.selectedCount } }
 }
 ```
 
@@ -275,11 +257,15 @@ struct InstalledApp: Identifiable, Hashable {
     let icon: NSImage?                    // App icon loaded from bundle
     let isSystemApp: Bool                 // Located in /System/Applications/
     let isAppleApp: Bool                  // Bundle ID starts with com.apple.
+    var bundleIsSelected: Bool            // Whether the .app bundle itself is selected
     var associatedFiles: [CleanableItem]  // All files in ~/Library/* for this app
+    var associatedFilesLoaded: Bool       // Lazy-loading state for associated files
     var lastUsedDate: Date?               // From Spotlight metadata
 
     // Computed
     var totalSize: Int64 { bundleSize + associatedFiles.reduce(0) { $0 + $1.size } }
+    var selectedTotalSize: Int64 { (bundleIsSelected ? bundleSize : 0) + associatedFiles.filter(\.isSelected).reduce(0) { $0 + $1.size } }
+    var selectedItemCount: Int { (bundleIsSelected ? 1 : 0) + associatedFiles.filter(\.isSelected).count }
     var isProtected: Bool { isSystemApp || isAppleApp }
     var formattedTotalSize: String { SizeFormatter.format(totalSize) }
 }
@@ -335,7 +321,7 @@ FileScanner (actor)
 │
 ├── scanTempFiles() async -> CleanCategory
 │   ├── Scans $TMPDIR and /tmp/
-│   ├── Only includes files older than configurable threshold (default 24h)
+│   ├── Only includes files older than configurable threshold (default 7 days)
 │   └── Skips files owned by root
 │
 ├── scanXcode() async -> CleanCategory?
@@ -346,6 +332,18 @@ FileScanner (actor)
 ├── scanDeveloperCaches() async -> CleanCategory
 │   ├── SPM, CocoaPods, Homebrew, npm, Yarn, pip caches
 │   └── Only includes those that exist on disk
+│
+├── scanDocker() async -> CleanCategory?
+│   ├── Returns nil if Docker data/config is absent
+│   └── Scans Docker VM data and local Docker config
+│
+├── scanHomebrewExtended() async -> CleanCategory?
+│   ├── Reports Cellar usage in addition to cache paths
+│   └── Starts unselected because old versions may still matter to the user
+│
+├── scanDownloads() async -> CleanCategory?
+│   ├── Returns nil if ~/Downloads is empty or unavailable
+│   └── Awareness-only category, defaulting to unselected
 │
 ├── scanDSStores() async -> CleanCategory
 │   ├── Recursive enumeration from $HOME
@@ -377,17 +375,18 @@ AppInventory (actor)
 ├── loadAllApps() async -> [InstalledApp]
 │   ├── Enumerates /Applications/ recursively (handles subdirectories)
 │   ├── Enumerates ~/Applications/
+│   ├── Supplements results with Spotlight-discovered .app bundles in non-standard locations
 │   ├── Reads Info.plist for each .app bundle:
 │   │   ├── CFBundleIdentifier
 │   │   ├── CFBundleDisplayName / CFBundleName
 │   │   ├── CFBundleShortVersionString
-│   │   └── CFBundleIconFile / CFBundleIconName
+│   ├── Deduplicates by standardized bundle path
 │   ├── Computes bundle size
 │   ├── Loads app icon via NSWorkspace.icon(forFile:)
 │   └── Marks system/Apple apps
 │
 ├── installedBundleIdentifiers() async -> Set<String>
-│   └── Returns lowercased set of all bundle IDs
+│   └── Returns lowercased set of all bundle IDs, including Spotlight-supplemented apps
 │
 ├── findAssociatedFiles(for bundleID: String, appName: String) async -> [CleanableItem]
 │   ├── Searches ~/Library/Application Support/
@@ -399,7 +398,7 @@ AppInventory (actor)
 │   ├── Searches ~/Library/WebKit/
 │   ├── Searches ~/Library/HTTPStorages/
 │   ├── Searches ~/Library/Logs/
-│   └── Searches ~/Library/LaunchAgents/ (parses plist Label field)
+│   └── Searches LaunchAgents and LaunchDaemons by parsing plist content
 │
 └── appLastUsedDate(at: URL) -> Date?
     └── Uses MDItemCreateWithURL + kMDItemLastUsedDate (Spotlight metadata)
@@ -418,19 +417,13 @@ OrphanDetector (actor)
 │   ├── Unmatched entries → candidate orphans
 │   ├── Filters out protected/excluded entries
 │   ├── Groups by inferred app name
-│   ├── Assigns confidence scores
+│   ├── Assigns confidence scores using Saved State, receipt, and Spotlight signals
 │   └── Sorts by total size descending
 │
-├── matchesInstalledApp(name: String, installedIDs: Set<String>) -> Bool
-│   ├── Direct match: name exists in installedIDs
-│   ├── Prefix match: name starts with a known bundle ID
-│   ├── Contains match: any installed ID contains name (or vice versa)
-│   └── Normalized match: remove dots/hyphens, compare
-│
-└── assignConfidence(orphan: OrphanedApp) -> OrphanConfidence
-    ├── High: found in Saved Application State + exact bundle ID pattern
-    ├── Medium: bundle ID pattern but not in Saved Application State
-    └── Low: name-only match, no bundle ID pattern
+└── assignConfidence(locations:receiptBundleIDs:spotlightBundleIDs:) -> OrphanConfidence
+    ├── High: Saved Application State + bundle-ID pattern, or receipt evidence
+    ├── Medium: bundle-ID pattern or Spotlight evidence
+    └── Low: weak name-only evidence
 ```
 
 ### 4.4 AppUninstaller
@@ -446,21 +439,9 @@ AppUninstaller (actor)
 │   └── Returns plan with all files and metadata
 │
 ├── executeUninstall(plan: UninstallPlan, moveToTrash: Bool) -> AsyncStream<UninstallProgress>
-│   ├── If app is running: attempt graceful termination
-│   │   ├── NSRunningApplication.terminate()
-│   │   ├── Wait up to 5 seconds
-│   │   └── If still running: report and abort (don't force-kill without user consent)
 │   ├── Remove associated Library files first
 │   ├── Remove the .app bundle last (so if interrupted, app still shows as installed)
-│   ├── Log every deletion via os.Logger
 │   └── Finishes with .complete(CleanReport)
-│
-├── forceQuitApp(bundleIdentifier: String) async -> Bool
-│   ├── NSRunningApplication.forceTerminate()
-│   └── Only called when user explicitly confirms force-quit
-│
-└── isAppRunning(bundleIdentifier: String) -> Bool
-    └── Checks NSWorkspace.shared.runningApplications
 ```
 
 **`UninstallPlan`:**
@@ -471,7 +452,7 @@ struct UninstallPlan {
     let totalSize: Int64
     let isRunning: Bool
     let isProtected: Bool
-    let requiresForceQuit: Bool
+    var selectedCount: Int { filesToRemove.count }
 }
 ```
 
@@ -621,21 +602,19 @@ class UninstallerViewModel {
 ```swift
 @main
 struct BroomApp: App {
-    @State private var scanViewModel = ScanViewModel()
-    @State private var uninstallerViewModel = UninstallerViewModel()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // Main application window
         Window("Broom", id: "main") {
-            MainWindow(
-                scanViewModel: scanViewModel,
-                uninstallerViewModel: uninstallerViewModel
-            )
+            MainWindow()
+                .environment(appDelegate.router)
         }
         .defaultSize(width: 750, height: 520)
         .windowResizability(.contentMinSize)
+        .commands {
+            // Cmd+Shift+S scan shortcut and Cmd+1/2/3 sidebar routing
+        }
 
-        // Settings (Cmd+,)
         Settings {
             SettingsView()
         }
@@ -646,7 +625,8 @@ struct BroomApp: App {
 **Key points:**
 - `Window` for a single standard desktop app window
 - Single main window with `NavigationSplitView` for sidebar navigation
-- Cleaner and Uninstaller are sidebar sections within the same window
+- Cleaner, Uninstaller, and Large Files are sidebar sections within the same window
+- `AppRouter` carries keyboard shortcuts and Dock drop actions into the active window
 - `Settings` scene for the preferences window (accessible via Cmd+, and toolbar affordances)
 - Standard Dock icon — no `LSUIElement` flag
 
@@ -657,7 +637,7 @@ MainWindow (NavigationSplitView)
 ├── Sidebar content
 │   ├── "Clean" navigation item (SF Symbol: magnifyingglass)
 │   ├── "Apps" navigation item (SF Symbol: shippingbox)
-│   └── Optional Settings shortcut / affordance
+│   └── "Large Files" navigation item (SF Symbol: doc.badge.arrow.up)
 │
 ├── CleanerView (detail when "Clean" selected)
 │   ├── IdleView
@@ -699,20 +679,27 @@ MainWindow (NavigationSplitView)
 │
 ├── UninstallerView (detail when "Apps" selected)
 │   ├── HSplitView
-│   │   ├── AppListView (left, 250px)
+│   │   ├── Left pane inside UninstallerView
 │   │   │   ├── Search bar
 │   │   │   ├── Sort controls
-│   │   │   └── List of AppRowView
-│   │   │       └── App icon + name + total size
+│   │   │   ├── List of AppRowView
+│   │   │   └── Refresh button
 │   │   │
 │   │   └── AppDetailView (right, flexible)
 │   │       ├── App icon (large) + name + version
 │   │       ├── "Last used: X" label
-│   │       ├── List of associated files with toggles
-│   │       ├── Total size
+│   │       ├── Bundle row + associated-file rows with toggles
+│   │       ├── Selected total
 │   │       └── "Uninstall" button (red, prominent)
 │   │
-│   └── Drop zone overlay ("Drop a .app here to uninstall")
+│   ├── UninstallConfirmView (sheet)
+│   └── Running-app alerts for quit / force-quit confirmation
+│
+├── LargeFilesView (detail when "Large Files" selected)
+│   ├── Idle state with minimum-size picker
+│   ├── Scanning state with current path
+│   ├── Results list of LargeFileRowView
+│   └── Done state after moving files to Trash
 │
 Settings scene / SettingsView
 ├── GeneralSettingsView
@@ -928,7 +915,7 @@ enum BroomError: LocalizedError {
 |------------|-------|-----------|
 | **Sparkle** | Auto-update framework | Yes — post-MVP only |
 
-**Philosophy:** Minimize third-party dependencies. The app should build with zero external packages for v1.0. Sparkle can be added for v1.1+.
+**Philosophy:** Minimize third-party dependencies. The app builds with zero external packages today. Sparkle remains an optional future addition.
 
 ---
 

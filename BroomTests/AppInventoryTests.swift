@@ -41,7 +41,8 @@ struct AppInventoryTests {
                 preferencesDirectory: preferences,
                 launchAgentDirectories: [
                     ("Launch Agents", launchAgents),
-                ]
+                ],
+                supplementalApplicationURLsProvider: { [] }
             )
         )
 
@@ -66,11 +67,48 @@ struct AppInventoryTests {
                 applicationDirectories: [appsDirectory],
                 librarySearchDirectories: [],
                 preferencesDirectory: root.appendingPathComponent("Preferences"),
-                launchAgentDirectories: []
+                launchAgentDirectories: [],
+                supplementalApplicationURLsProvider: { [] }
             )
         )
 
         let identifiers = await inventory.installedBundleIdentifiers()
         #expect(identifiers.contains("com.example.sample"))
+    }
+
+    @Test func includesSpotlightSupplementedAppsOutsideStandardDirectories() async throws {
+        let root = try TestSupport.makeTempDirectory()
+        let appsDirectory = root.appendingPathComponent("Applications")
+        let externalDirectory = root.appendingPathComponent("ExternalApps")
+        try FileManager.default.createDirectory(at: appsDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: externalDirectory, withIntermediateDirectories: true)
+
+        _ = try TestSupport.makeAppBundle(
+            at: appsDirectory,
+            name: "Standard",
+            bundleIdentifier: "com.example.standard"
+        )
+        let externalApp = try TestSupport.makeAppBundle(
+            at: externalDirectory,
+            name: "Portable",
+            bundleIdentifier: "com.example.portable"
+        )
+
+        let inventory = AppInventory(
+            locations: AppInventoryLocations(
+                applicationDirectories: [appsDirectory],
+                librarySearchDirectories: [],
+                preferencesDirectory: root.appendingPathComponent("Preferences"),
+                launchAgentDirectories: [],
+                supplementalApplicationURLsProvider: { [externalApp] }
+            )
+        )
+
+        let apps = await inventory.loadAllApps()
+        let identifiers = await inventory.installedBundleIdentifiers()
+
+        #expect(apps.count == 2)
+        #expect(apps.contains(where: { $0.bundleIdentifier == "com.example.portable" }))
+        #expect(identifiers.contains("com.example.portable"))
     }
 }

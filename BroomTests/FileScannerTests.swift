@@ -93,21 +93,71 @@ struct FileScannerTests {
         #expect(tempCategory?.items.first?.path.lastPathComponent == "old.tmp")
     }
 
+    @Test func includesDownloadsAsAwarenessOnlyCategory() async throws {
+        let root = try TestSupport.makeTempDirectory()
+        let locations = try makeLocations(root: root)
+        try TestSupport.writeFile(at: locations.downloads.appendingPathComponent("archive.zip"))
+
+        let scanner = FileScanner(
+            locations: locations,
+            preferencesProvider: {
+                let defaults = UserDefaults(suiteName: UUID().uuidString)!
+                return AppPreferences(userDefaults: defaults)
+            }
+        )
+
+        let result = await TestSupport.collectScanResult(from: scanner)
+        let downloads = result?.categories.first(where: { $0.name == "Downloads" })
+
+        #expect(downloads != nil)
+        #expect(downloads?.defaultSelected == false)
+        #expect(downloads?.isSelected == false)
+        #expect(downloads?.items.first?.isSelected == false)
+    }
+
+    @Test func maintainsStableCategoryOrderWithParallelScan() async throws {
+        let root = try TestSupport.makeTempDirectory()
+        let locations = try makeLocations(root: root)
+        try TestSupport.writeFile(at: locations.userCaches.appendingPathComponent("com.example.cache/data"))
+        try TestSupport.writeFile(at: locations.downloads.appendingPathComponent("movie.mov"))
+
+        let scanner = FileScanner(
+            locations: locations,
+            preferencesProvider: {
+                let defaults = UserDefaults(suiteName: UUID().uuidString)!
+                defaults.set(false, forKey: "showDeveloperCaches")
+                defaults.set(false, forKey: "scanDSStores")
+                return AppPreferences(userDefaults: defaults)
+            }
+        )
+
+        let result = await TestSupport.collectScanResult(from: scanner)
+        #expect(result?.categories.map(\.name) == [
+            "System Caches",
+            "Browser Caches",
+            "System Logs",
+            "Temporary Files",
+            "Downloads",
+        ])
+    }
+
     private func makeLocations(root: URL) throws -> FileScannerLocations {
         let library = root.appendingPathComponent("Library")
         let caches = library.appendingPathComponent("Caches")
+        let downloads = root.appendingPathComponent("Downloads")
         let chromeBase = caches.appendingPathComponent("Google/Chrome")
         let braveBase = caches.appendingPathComponent("BraveSoftware/Brave-Browser")
         let edgeBase = caches.appendingPathComponent("com.microsoft.edgemac")
         let tmp = root.appendingPathComponent("tmp")
 
-        for directory in [library, caches, chromeBase, braveBase, edgeBase, tmp] {
+        for directory in [library, caches, downloads, chromeBase, braveBase, edgeBase, tmp] {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         }
 
         return FileScannerLocations(
             home: root,
             userCaches: caches,
+            downloads: downloads,
             chromeCacheBase: chromeBase,
             firefoxCache: caches.appendingPathComponent("org.mozilla.firefox"),
             safariCache: caches.appendingPathComponent("com.apple.Safari"),
@@ -124,9 +174,12 @@ struct FileScannerTests {
             spmCache: caches.appendingPathComponent("org.swift.swiftpm"),
             cocoapodsCache: caches.appendingPathComponent("CocoaPods"),
             homebrewCache: caches.appendingPathComponent("Homebrew"),
+            homebrewCellar: root.appendingPathComponent("Homebrew/Cellar"),
             npmCache: root.appendingPathComponent(".npm/_cacache"),
             yarnCache: caches.appendingPathComponent("Yarn"),
             pipCache: caches.appendingPathComponent("pip"),
+            dockerData: library.appendingPathComponent("Containers/com.docker.docker/Data/vms"),
+            dockerConfig: root.appendingPathComponent(".docker"),
             mailAttachments: library.appendingPathComponent("Containers/com.apple.mail/Data/Library/Mail Downloads")
         )
     }
