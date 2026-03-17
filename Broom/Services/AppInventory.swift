@@ -195,22 +195,25 @@ actor AppInventory: AppInventoryServing {
 
         for dir in locations.applicationDirectories {
             for app in enumerateApps(in: dir) {
-                bundleIDs.insert(app.bundleIdentifier.lowercased())
-                appURLs.insert(app.bundlePath.standardizedFileURL)
+                let appURL = app.bundlePath.standardizedFileURL
+                bundleIDs.formUnion(bundleIdentifiers(inBundleHierarchyAt: appURL))
+                appURLs.insert(appURL)
             }
         }
 
         for root in locations.extendedAppDiscoveryRoots {
             for app in enumerateAppsIncludingCaskroom(in: root) {
-                bundleIDs.insert(app.bundleIdentifier.lowercased())
-                appURLs.insert(app.bundlePath.standardizedFileURL)
+                let appURL = app.bundlePath.standardizedFileURL
+                bundleIDs.formUnion(bundleIdentifiers(inBundleHierarchyAt: appURL))
+                appURLs.insert(appURL)
             }
         }
 
         for url in await locations.supplementalApplicationURLsProvider() {
             if let app = parseApp(at: url) {
-                bundleIDs.insert(app.bundleIdentifier.lowercased())
-                appURLs.insert(app.bundlePath.standardizedFileURL)
+                let appURL = app.bundlePath.standardizedFileURL
+                bundleIDs.formUnion(bundleIdentifiers(inBundleHierarchyAt: appURL))
+                appURLs.insert(appURL)
             }
         }
 
@@ -342,6 +345,35 @@ actor AppInventory: AppInventoryServing {
             associatedFilesLoaded: false,
             lastUsedDate: lastUsed
         )
+    }
+
+    private func bundleIdentifiers(inBundleHierarchyAt rootAppURL: URL) -> Set<String> {
+        var bundleIDs = Set<String>()
+
+        if let app = parseApp(at: rootAppURL) {
+            bundleIDs.insert(app.bundleIdentifier.lowercased())
+        }
+
+        guard let enumerator = fileManager.enumerator(
+            at: rootAppURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return bundleIDs
+        }
+
+        let embeddedBundleExtensions: Set<String> = ["app", "appex", "xpc"]
+
+        for case let entry as URL in enumerator {
+            guard entry != rootAppURL else { continue }
+            guard embeddedBundleExtensions.contains(entry.pathExtension.lowercased()) else { continue }
+
+            if let embeddedApp = parseApp(at: entry) {
+                bundleIDs.insert(embeddedApp.bundleIdentifier.lowercased())
+            }
+        }
+
+        return bundleIDs
     }
 
     private func directorySize(at url: URL) -> Int64 {

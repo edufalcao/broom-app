@@ -17,6 +17,8 @@ Project documentation is grouped by domain and by release-document lifecycle.
 ### Plans
 - [Uninstall & Orphan Hardening Plan](./plans/uninstall-orphan-hardening.md)
   Proposed work to make explicit app uninstalls more complete and generic leftover detection more conservative.
+- [1.3.0 Release Plan](./plans/1.3.0-release-plan.md)
+  Proposed scope for the next minor release, focused on leftover accuracy, uninstall trust, result reporting, and test infrastructure.
 
 ### Design
 - [Icon Brief](./design/icon-brief.md)

@@ -8,7 +8,7 @@ enum ProtectedDataPolicy {
 
     // MARK: - Protected Bundle ID Prefixes
 
-    /// Bundle ID prefixes for apps whose leftover data should never be flagged.
+    /// Bundle or container prefixes for apps whose leftover data should never be flagged.
     static let protectedBundleIDPrefixes: [String] = [
         // Password managers
         "com.agilebits.onepassword",
@@ -51,6 +51,7 @@ enum ProtectedDataPolicy {
 
         // Apple / system data (never legitimate leftovers)
         "com.apple.",
+        "group.com.apple.",
 
         // Automation / scripting tools
         "com.stairways.keyboardmaestro",
@@ -114,7 +115,7 @@ enum ProtectedDataPolicy {
             }
         }
 
-        // Also check if the last path component (directory name) matches a protected bundle prefix
+        // Also check if the last path component (directory name) matches a protected bundle/container prefix
         let name = path.lastPathComponent.lowercased()
         return protectedBundleIDPrefixes.contains { name.hasPrefix($0) }
     }

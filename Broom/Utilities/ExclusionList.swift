@@ -3,12 +3,16 @@ import Foundation
 enum ExclusionList {
     static func isExcluded(_ path: URL, userEntries: Set<String> = loadUserEntries()) -> Bool {
         let name = path.lastPathComponent
+        let loweredName = name.lowercased()
 
         // Own bundle
         if name == Constants.bundleIdentifier { return true }
 
         // System-critical caches
         if Constants.protectedCacheIdentifiers.contains(name) { return true }
+
+        // System-managed preference/account files
+        if Constants.protectedPreferenceFiles.contains(loweredName) { return true }
 
         // Protected bundle ID prefixes
         for prefix in Constants.protectedBundleIDPrefixes {

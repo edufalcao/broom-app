@@ -9,6 +9,16 @@ struct ExclusionListTests {
         #expect(ExclusionList.isExcluded(path))
     }
 
+    @Test func excludesAppleManagedGroupContainerPrefixes() {
+        let path = URL(fileURLWithPath: "/tmp/group.com.apple.storekit")
+        #expect(ExclusionList.isExcluded(path))
+    }
+
+    @Test func excludesAppleAccountPreferenceFiles() {
+        let path = URL(fileURLWithPath: "/Users/test/Library/Preferences/MobileMeAccounts.plist")
+        #expect(ExclusionList.isExcluded(path))
+    }
+
     @Test func excludesCustomPathEntries() {
         let entries: Set<String> = ["/tmp/my-safe-path"]
         let path = URL(fileURLWithPath: "/tmp/my-safe-path/child/file")

@@ -266,6 +266,31 @@ struct OrphanDetectorTests {
         #expect(orphans.first?.bundleIdentifier == "com.stale.app")
     }
 
+    @Test func recentDescendantActivitySuppressesOldParentDirectory() async throws {
+        let root = try TestSupport.makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let appSupport = root.appendingPathComponent("Application Support")
+        try FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
+
+        let candidate = appSupport.appendingPathComponent("com.example.activecache")
+        let recentDate = Date()
+        try TestSupport.writeOrphanFile(
+            at: candidate.appendingPathComponent("nested/live.sqlite-wal"),
+            modificationDate: recentDate
+        )
+        try TestSupport.setModificationDate(oldDate, at: candidate)
+
+        let detector = makeDetector(
+            root: root,
+            subdirectories: [appSupport],
+            orphanStaleAgeDays: 30
+        )
+
+        let orphans = await detector.detectOrphans()
+        #expect(orphans.isEmpty)
+    }
+
     @Test func runningAppsAreSuppressed() async throws {
         let root = try TestSupport.makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -322,6 +347,50 @@ struct OrphanDetectorTests {
         #expect(orphans.isEmpty)
     }
 
+    @Test func managedContainerCreatorSuppressesMigratedTeamsContainer() async throws {
+        let root = try TestSupport.makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let groupContainers = root.appendingPathComponent("Group Containers")
+        let teamsContainer = groupContainers.appendingPathComponent("UBF8T346G9.com.microsoft.teams")
+        try FileManager.default.createDirectory(at: teamsContainer, withIntermediateDirectories: true)
+
+        try TestSupport.writeOrphanFile(
+            at: teamsContainer.appendingPathComponent("Library/Application Support/Logs/MSTeams.log"),
+            modificationDate: oldDate
+        )
+        try TestSupport.setModificationDate(oldDate, at: teamsContainer)
+
+        let metadata: [String: Any] = [
+            "MCMMetadataCreator": "com.microsoft.teams2",
+            "MCMMetadataIdentifier": "UBF8T346G9.com.microsoft.teams",
+        ]
+        let metadataData = try PropertyListSerialization.data(
+            fromPropertyList: metadata,
+            format: .xml,
+            options: 0
+        )
+        try metadataData.write(
+            to: teamsContainer.appendingPathComponent(".com.apple.containermanagerd.metadata.plist")
+        )
+
+        let snapshot = InstalledAppSnapshot(
+            installedBundleIDs: ["com.microsoft.teams2"],
+            installedAppURLs: [],
+            runningBundleIDs: [],
+            launchItemLabels: []
+        )
+
+        let detector = makeDetector(
+            root: root,
+            snapshot: snapshot,
+            subdirectories: [groupContainers]
+        )
+
+        let orphans = await detector.detectOrphans()
+        #expect(orphans.isEmpty)
+    }
+
     @Test func lowSignalNameOnlyLeftoversNotListed() async throws {
         let root = try TestSupport.makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -372,6 +441,49 @@ struct OrphanDetectorTests {
         let detector = makeDetector(
             root: root,
             subdirectories: [appSupport]
+        )
+
+        let orphans = await detector.detectOrphans()
+        #expect(orphans.isEmpty)
+    }
+
+    @Test func appleAccountPreferenceFilesAreSuppressed() async throws {
+        let root = try TestSupport.makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let preferences = root.appendingPathComponent("Preferences")
+        try FileManager.default.createDirectory(at: preferences, withIntermediateDirectories: true)
+
+        let mobileMeAccounts = preferences.appendingPathComponent("MobileMeAccounts.plist")
+        try TestSupport.writeFile(at: mobileMeAccounts, contents: "<plist/>")
+        try TestSupport.setModificationDate(oldDate, at: mobileMeAccounts)
+
+        let detector = makeDetector(
+            root: root,
+            subdirectories: [preferences]
+        )
+
+        let orphans = await detector.detectOrphans()
+        #expect(orphans.isEmpty)
+    }
+
+    @Test func appleManagedGroupContainersAreSuppressed() async throws {
+        let root = try TestSupport.makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let groupContainers = root.appendingPathComponent("Group Containers")
+        try FileManager.default.createDirectory(at: groupContainers, withIntermediateDirectories: true)
+
+        let storeKitContainer = groupContainers.appendingPathComponent("group.com.apple.storekit")
+        try TestSupport.writeOrphanFile(
+            at: storeKitContainer.appendingPathComponent("cache.dat"),
+            modificationDate: oldDate
+        )
+        try TestSupport.setModificationDate(oldDate, at: storeKitContainer)
+
+        let detector = makeDetector(
+            root: root,
+            subdirectories: [groupContainers]
         )
 
         let orphans = await detector.detectOrphans()
@@ -439,6 +551,30 @@ struct OrphanDetectorTests {
         #expect(highOrphan?.confidence == .high)
         #expect(highOrphan?.locationCount == 2)
         #expect(mediumOrphan?.confidence == .medium)
+    }
+
+    @Test func containerOnlyCandidatesDefaultToLowConfidence() async throws {
+        let root = try TestSupport.makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let groupContainers = root.appendingPathComponent("Group Containers")
+        try FileManager.default.createDirectory(at: groupContainers, withIntermediateDirectories: true)
+
+        let avastContainer = groupContainers.appendingPathComponent("6H4HRTU5E3.group.com.avast.osx")
+        try TestSupport.writeOrphanFile(
+            at: avastContainer.appendingPathComponent("store"),
+            modificationDate: oldDate
+        )
+        try TestSupport.setModificationDate(oldDate, at: avastContainer)
+
+        let detector = makeDetector(
+            root: root,
+            subdirectories: [groupContainers]
+        )
+
+        let orphans = await detector.detectOrphans()
+        #expect(orphans.count == 1)
+        #expect(orphans.first?.confidence == .low)
     }
 
     @Test func launchItemMatchSuppressesCandidate() async throws {

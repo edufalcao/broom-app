@@ -49,6 +49,7 @@ struct ProtectedDataPolicyTests {
         #expect(ProtectedDataPolicy.isProtected(bundleID: "com.apple.finder"))
         #expect(ProtectedDataPolicy.isProtected(bundleID: "com.apple.preference.general"))
         #expect(ProtectedDataPolicy.isProtected(bundleID: "com.apple.appstore"))
+        #expect(ProtectedDataPolicy.isProtected(bundleID: "group.com.apple.storekit"))
     }
 
     @Test func appleSystemPathsAreProtected() {
@@ -57,6 +58,9 @@ struct ProtectedDataPolicyTests {
 
         let spotlightPath = URL(fileURLWithPath: "/Users/test/Library/Caches/com.apple.spotlight")
         #expect(ProtectedDataPolicy.isProtected(path: spotlightPath))
+
+        let groupContainerPath = URL(fileURLWithPath: "/Users/test/Library/Group Containers/group.com.apple.CoreSpeech")
+        #expect(ProtectedDataPolicy.isProtected(path: groupContainerPath))
     }
 
     @Test func unprotectedBundleIDsAreNotProtected() {

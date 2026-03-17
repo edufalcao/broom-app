@@ -4,6 +4,23 @@ All notable changes to Broom will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-03-17
+
+### Added
+- Container metadata reading for Group Containers and Application Scripts — suppresses entries owned by installed apps via `.com.apple.containermanagerd.metadata.plist`
+- Embedded helper bundle ID discovery: installed-app snapshots now include bundle IDs from embedded `.app`, `.appex`, and `.xpc` bundles within app hierarchies
+- Descendant-aware stale-age evaluation: directory candidates use the newest file modification date, not just the top-level folder timestamp
+- Explicit suppression for Apple-managed account preferences (`MobileMeAccounts.plist`)
+- Regression tests for Teams migration containers, Apple group containers, embedded helper bundles, recent descendant activity, creator metadata ownership, and container-only confidence
+
+### Changed
+- Apple-managed group containers (`group.com.apple.*`) are now suppressed from orphan detection
+- Container-only candidates default to lower confidence unless stronger signals (receipts, saved-state) exist
+- Orphan detection expanded from 9 to 10 suppression gates (added managed container ownership check)
+
+### Quality
+- 176 tests across 27 suites (up from 168)
+
 ## [1.2.0] - 2026-03-17
 
 ### Changed

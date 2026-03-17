@@ -146,6 +146,39 @@ struct AppInventoryTests {
         #expect(snapshot.launchItemLabels.contains("com.example.alpha.agent"))
     }
 
+    @Test func snapshotIncludesEmbeddedHelperBundleIdentifiers() async throws {
+        let root = try TestSupport.makeTempDirectory()
+        let appsDir = root.appendingPathComponent("Applications")
+        try FileManager.default.createDirectory(at: appsDir, withIntermediateDirectories: true)
+
+        let hostApp = try TestSupport.makeAppBundle(
+            at: appsDir,
+            name: "Host",
+            bundleIdentifier: "com.example.host"
+        )
+        _ = try TestSupport.makeAppBundle(
+            at: hostApp.appendingPathComponent("Contents/MacOS"),
+            name: "Host Helper",
+            bundleIdentifier: "com.example.host.helper"
+        )
+
+        let inventory = AppInventory(
+            locations: AppInventoryLocations(
+                applicationDirectories: [appsDir],
+                extendedAppDiscoveryRoots: [],
+                librarySearchDirectories: [],
+                preferencesDirectory: root.appendingPathComponent("Preferences"),
+                launchAgentDirectories: [],
+                supplementalApplicationURLsProvider: { [] },
+                runningBundleIDsProvider: { [] }
+            )
+        )
+
+        let snapshot = await inventory.buildSnapshot()
+        #expect(snapshot.installedBundleIDs.contains("com.example.host"))
+        #expect(snapshot.installedBundleIDs.contains("com.example.host.helper"))
+    }
+
     @Test func snapshotIncludesSpotlightApps() async throws {
         let root = try TestSupport.makeTempDirectory()
         let appsDir = root.appendingPathComponent("Applications")

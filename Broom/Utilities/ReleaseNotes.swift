@@ -8,10 +8,33 @@ struct ReleaseNoteSection: Identifiable {
 }
 
 enum ReleaseNotes {
-    static let currentVersion = "1.2.0"
+    static let currentVersion = "1.3.0"
     static let currentReleaseDate = "2026-03-17"
 
     static let versions: [(version: String, date: String, sections: [ReleaseNoteSection])] = [
+        (
+            version: "1.3.0",
+            date: "2026-03-17",
+            sections: [
+                ReleaseNoteSection(
+                    title: "Trustworthy Leftover Detection",
+                    items: [
+                        "Group Container and Application Scripts entries are now checked for ownership via container metadata — entries owned by installed apps are suppressed.",
+                        "Installed-app snapshots include embedded helper bundle IDs (.app, .appex, .xpc), preventing helpers like Microsoft AutoUpdate from appearing as leftovers.",
+                        "Stale-age evaluation uses the newest descendant file modification date, so directories with recent activity are no longer misclassified.",
+                        "Apple-managed group containers (group.com.apple.*) are fully suppressed.",
+                        "Apple account preferences like MobileMeAccounts.plist are protected.",
+                        "Container-only candidates default to lower confidence unless stronger signals exist.",
+                    ]
+                ),
+                ReleaseNoteSection(
+                    title: "Quality",
+                    items: [
+                        "176 tests across 27 suites.",
+                    ]
+                ),
+            ]
+        ),
         (
             version: "1.2.0",
             date: "2026-03-17",

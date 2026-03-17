@@ -19,6 +19,11 @@ actor OrphanDetector: OrphanDetecting {
     /// Minimum size threshold: candidates smaller than this are not worth showing.
     private static let minimumSizeThreshold: Int64 = 4096
 
+    private struct EntryMetrics {
+        let size: Int64
+        let latestModificationDate: Date
+    }
+
     init(
         appInventory: AppInventoryServing,
         fileManager: FileManager = .default,
@@ -64,32 +69,33 @@ actor OrphanDetector: OrphanDetecting {
                 // 3. Protected data-family check (ProtectedDataPolicy)
                 if ProtectedDataPolicy.isProtected(path: entry) { continue }
 
-                // 4. Installed app snapshot match (strict match only)
+                // 4. Managed container ownership check
+                if isOwnedByInstalledOrRunningApp(entry, parentDir: dir, snapshot: snapshot) { continue }
+
+                // 5. Installed app snapshot match (strict match only)
                 if BundleIDMatcher.strictMatch(candidate: name, against: snapshot.installedBundleIDs) { continue }
 
-                // 5. Running app match
+                // 6. Running app match
                 if BundleIDMatcher.strictMatch(candidate: name, against: snapshot.runningBundleIDs) { continue }
 
-                // 6. Launch item match
+                // 7. Launch item match
                 if matchesLaunchItem(name: name, launchItemLabels: snapshot.launchItemLabels) { continue }
 
-                // 7. Spotlight/LaunchServices existence — suppress if Spotlight shows it as installed
+                // 8. Spotlight/LaunchServices existence — suppress if Spotlight shows it as installed
                 if spotlightBundleIDs.contains(name.lowercased()) { continue }
 
-                // 8. Size threshold — suppress tiny entries (< 4KB)
-                let size = directorySize(at: entry)
-                guard size >= Self.minimumSizeThreshold else { continue }
-
-                // 9. Recent modification threshold — suppress recently modified candidates
-                let modDate = modificationDate(at: entry)
-                if modDate > staleAgeThreshold { continue }
+                // 9. Size threshold — suppress tiny entries (< 4KB)
+                // 10. Recent modification threshold — suppress candidates with active descendants
+                let metrics = entryMetrics(at: entry)
+                guard metrics.size >= Self.minimumSizeThreshold else { continue }
+                if metrics.latestModificationDate > staleAgeThreshold { continue }
 
                 let appName = BundleIDMatcher.inferAppName(from: name)
                 let item = CleanableItem(
                     path: entry,
                     name: "\(dir.lastPathComponent)/\(name)",
-                    size: size,
-                    modifiedDate: modDate,
+                    size: metrics.size,
+                    modifiedDate: metrics.latestModificationDate,
                     isSelected: false
                 )
 
@@ -153,6 +159,40 @@ actor OrphanDetector: OrphanDetecting {
         return launchItemLabels.contains { lowered.hasPrefix($0.lowercased()) }
     }
 
+    // MARK: - Managed Container Ownership
+
+    private func isOwnedByInstalledOrRunningApp(
+        _ entry: URL,
+        parentDir: URL,
+        snapshot: InstalledAppSnapshot
+    ) -> Bool {
+        guard let creator = managedContainerCreator(for: entry, parentDir: parentDir) else {
+            return false
+        }
+
+        let loweredCreator = creator.lowercased()
+        return snapshot.installedBundleIDs.contains(loweredCreator) ||
+            snapshot.runningBundleIDs.contains(loweredCreator)
+    }
+
+    private func managedContainerCreator(for entry: URL, parentDir: URL) -> String? {
+        let parentName = parentDir.lastPathComponent
+        guard parentName == "Group Containers" || parentName == "Application Scripts" else {
+            return nil
+        }
+
+        let metadataURL = entry.appendingPathComponent(".com.apple.containermanagerd.metadata.plist")
+        guard let data = try? Data(contentsOf: metadataURL),
+              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              let creator = plist["MCMMetadataCreator"] as? String,
+              !creator.isEmpty
+        else {
+            return nil
+        }
+
+        return creator
+    }
+
     // MARK: - Confidence Scoring
 
     private func assignConfidence(
@@ -174,12 +214,22 @@ actor OrphanDetector: OrphanDetecting {
             return receiptBundleIDs.contains(name)
         }
 
+        let isContainerOnlyCandidate = locations.allSatisfy {
+            isContainerScopedCandidate($0.path)
+        }
+
         // High: multiple strong signals
         if (hasSavedState && hasBundleIDPattern) || hasReceipt {
             return .high
         }
 
-        // Medium: at least one moderate signal
+        // Container-only candidates are weaker signals because app-group storage is
+        // commonly shared across helper bundles or vendor frameworks.
+        if hasBundleIDPattern && isContainerOnlyCandidate {
+            return .low
+        }
+
+        // Medium: at least one moderate non-container signal
         if hasBundleIDPattern {
             return .medium
         }
@@ -274,35 +324,58 @@ actor OrphanDetector: OrphanDetecting {
         return nil
     }
 
-    private func modificationDate(at url: URL) -> Date {
-        (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
-            .contentModificationDate ?? Date.distantPast
+    private func isContainerScopedCandidate(_ url: URL) -> Bool {
+        let parentName = url.deletingLastPathComponent().lastPathComponent
+        return parentName == "Group Containers" || parentName == "Application Scripts"
     }
 
-    private func directorySize(at url: URL) -> Int64 {
-        var totalSize: Int64 = 0
+    private func entryMetrics(at url: URL) -> EntryMetrics {
         var isDir: ObjCBool = false
 
-        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDir) else { return 0 }
+        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDir) else {
+            return EntryMetrics(size: 0, latestModificationDate: .distantPast)
+        }
 
         if !isDir.boolValue {
-            return Int64((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
+            let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+            return EntryMetrics(
+                size: Int64(values?.fileSize ?? 0),
+                latestModificationDate: values?.contentModificationDate ?? .distantPast
+            )
         }
+
+        var totalSize: Int64 = 0
+        var latestModificationDate = (
+            try? url.resourceValues(forKeys: [.contentModificationDateKey])
+        )?.contentModificationDate ?? .distantPast
 
         guard let enumerator = fileManager.enumerator(
             at: url,
-            includingPropertiesForKeys: [.totalFileAllocatedSizeKey, .isRegularFileKey],
+            includingPropertiesForKeys: [
+                .totalFileAllocatedSizeKey,
+                .isRegularFileKey,
+                .contentModificationDateKey,
+            ],
             options: [.skipsHiddenFiles]
-        ) else { return 0 }
+        ) else {
+            return EntryMetrics(size: totalSize, latestModificationDate: latestModificationDate)
+        }
 
         for case let fileURL as URL in enumerator {
             guard let values = try? fileURL.resourceValues(
-                forKeys: [.totalFileAllocatedSizeKey, .isRegularFileKey]
+                forKeys: [
+                    .totalFileAllocatedSizeKey,
+                    .isRegularFileKey,
+                    .contentModificationDateKey,
+                ]
             ) else { continue }
+            if let modDate = values.contentModificationDate, modDate > latestModificationDate {
+                latestModificationDate = modDate
+            }
             if values.isRegularFile == true {
                 totalSize += Int64(values.totalFileAllocatedSize ?? 0)
             }
         }
-        return totalSize
+        return EntryMetrics(size: totalSize, latestModificationDate: latestModificationDate)
     }
 }

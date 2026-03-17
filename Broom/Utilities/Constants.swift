@@ -99,10 +99,11 @@ enum Constants {
         library.appendingPathComponent("HTTPStorages"),
     ]
 
-    // MARK: - Protected Bundle ID Prefixes
+    // MARK: - Protected Bundle / Container Prefixes
 
     static let protectedBundleIDPrefixes: Set<String> = [
         "com.apple.",
+        "group.com.apple.",
         "com.electron.",
         "org.chromium.",
     ]
@@ -117,6 +118,12 @@ enum Constants {
         "com.apple.nsurlsessiond",
         "CloudKit",
         "com.apple.LaunchServices",
+    ]
+
+    // MARK: - Protected Preference Files
+
+    static let protectedPreferenceFiles: Set<String> = [
+        "mobilemeaccounts.plist",
     ]
 
     // MARK: - Application Directories
