@@ -4,6 +4,44 @@ All notable changes to Broom will be documented in this file.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-17
+
+### Added
+- Uninstall artifact planner with 11 providers: user data, preferences, caches, group containers, web data, saved state, logs, launch items, helpers, receipts, and app scripts
+- Name variant generation for artifact discovery (no-space, hyphenated, underscored, lowercase, version/channel trimmed)
+- LaunchServices metadata cleanup: unregister apps and refresh database after uninstall
+- Login item cleanup: unload launch agents and daemons before deleting their files
+- Uninstall preview grouped by artifact source with section headers
+- Protected data policy covering 6 families: password managers, VPNs, browsers, AI tools, iCloud data, and automation tools
+- Delete policy with path safety validation, symlink resolution checks, and context-dependent protected-data enforcement
+- Structured DeleteResult type (success/blocked/failed) replacing raw success/failure
+- InstalledAppSnapshot for point-in-time system state used by orphan detection
+- Orphan stale-age threshold setting (default 30 days, configurable in Settings)
+- Select All checkbox at the top of scan results category list
+- "Back to apps list" button on uninstall success screen
+- Low-confidence orphan items shown in a separate dimmed section within category detail
+- Orphan results messaging explaining conservative policy
+- DeletePolicyTests, ProtectedDataPolicyTests, UninstallArtifactPlannerTests, and MetadataCleanupTests suites
+
+### Changed
+- Orphan detection rewritten with suppression-first architecture: 9 gates filter candidates before they reach results
+- Orphan candidates restricted to strict patterns only (reverse-DNS, .savedState, .binarycookies, Preferences .plist)
+- Spotlight and receipt signals used as suppression inputs instead of confidence boosters
+- BundleIDMatcher split into strictMatch (orphan-safe) and broadMatch (uninstall-only)
+- App inventory expanded with extended discovery roots (System/Applications, Homebrew Caskroom, Setapp)
+- SafeDelete validates every path through DeletePolicy before operating
+- FileCleaner and AppUninstaller use structured DeleteResult for reporting
+- Uninstall execution includes pre-delete (unload agents, remove login items) and post-delete (unregister, refresh LS) phases
+- All metadata cleanup steps are non-fatal
+- App list loads significantly faster using Spotlight metadata for bundle sizes instead of recursive file walks
+- Associated files load lazily on app selection instead of upfront for all apps
+- Apple and system apps filtered from the uninstaller list
+- Running app detection uses precise matching (full bundle ID and path components) instead of broad substring tokens
+- Confidence badge for low-confidence items changed from "Uncertain" to "Review before removing"
+
+### Quality
+- 162 tests across 27 suites (up from 72 across 21)
+
 ## [1.0.0] - 2026-03-15
 
 ### Added

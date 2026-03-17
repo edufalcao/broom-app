@@ -25,6 +25,12 @@ enum ExclusionList {
         return Constants.protectedBundleIDPrefixes.contains { lowered.hasPrefix($0) }
     }
 
+    /// Checks if a path should be excluded based on built-in rules only (no user entries).
+    /// Useful for quick suppression checks that don't need the user safe-list.
+    static func isExcludedPath(_ path: URL) -> Bool {
+        isExcluded(path, userEntries: [])
+    }
+
     static func loadUserEntries(
         from url: URL = Constants.safeListPath,
         fileManager: FileManager = .default

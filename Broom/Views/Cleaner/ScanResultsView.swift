@@ -48,6 +48,22 @@ struct ScanResultsView: View {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     if let result = viewModel.scanResult {
+                        HStack {
+                            Toggle("Select All", isOn: Binding(
+                                get: { result.categories.allSatisfy(\.isSelected) },
+                                set: { newValue in
+                                    if newValue { viewModel.selectAll() }
+                                    else { viewModel.deselectAll() }
+                                }
+                            ))
+                            .toggleStyle(.checkbox)
+                            Spacer()
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 4)
+
+                        Divider()
+
                         ForEach(result.categories) { category in
                             CategoryRowView(
                                 category: category,
@@ -57,6 +73,15 @@ struct ScanResultsView: View {
                             .padding(.horizontal)
 
                             Divider().padding(.leading, 52)
+                        }
+
+                        if result.categories.contains(where: { $0.name == "App Leftovers" }) {
+                            Text("Only stale, high-confidence leftovers are shown. Recently active or ambiguous items are excluded for safety.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal)
+                                .padding(.top, 4)
+                                .padding(.bottom, 8)
                         }
                     }
                 }

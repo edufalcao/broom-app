@@ -14,12 +14,14 @@ A free, open-source macOS utility that helps you reclaim disk space and maintain
 - Downloads folder awareness (shown unselected)
 - .DS_Store files
 - Mail attachments
-- Orphaned app leftovers with confidence scoring
+- Orphaned app leftovers with confidence scoring (suppression-first: only stale, high-confidence results shown)
 
 **App Uninstaller** - Fully uninstall apps:
 - Browse all installed apps with icons, sizes, and last-used dates
 - Sort by name, size, or last used
-- See every associated file across Library directories (including launch agents/daemons)
+- See every associated file across Library directories, grouped by source (user data, preferences, caches, launch items, helpers, receipts, and more)
+- Discovers artifacts using name variants (hyphenated, underscored, version-trimmed)
+- Unloads launch agents/daemons and cleans up LaunchServices metadata
 - Per-file selection — choose exactly what to remove
 - Drag-and-drop a .app onto the window to uninstall it
 - Running app detection with quit-before-uninstall flow and force-quit fallback
@@ -47,6 +49,8 @@ A free, open-source macOS utility that helps you reclaim disk space and maintain
 - Running app detection before cleaning caches
 - Orphaned files are unselected by default
 - Per-file selection in uninstall previews
+- Delete policy validates every path (symlink checks, protected system paths, protected data families)
+- Sensitive app data (password managers, VPNs, browsers, AI tools) never surfaced in generic scans
 
 ## Privacy
 

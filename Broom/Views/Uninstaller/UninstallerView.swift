@@ -28,11 +28,20 @@ struct UninstallerView: View {
             case .ready:
                 mainContent
 
-            case .uninstalling(let progress, let item):
+            case .uninstalling(let progress, let item, let phase):
                 VStack(spacing: 20) {
                     Spacer()
-                    Text("Uninstalling...")
-                        .font(.headline)
+                    Image(systemName: phaseIcon(phase))
+                        .font(.system(size: 32))
+                        .foregroundStyle(.secondary)
+                        .symbolEffect(.pulse, isActive: true)
+                    if let phase {
+                        Text(UninstallerViewModel.phaseDescription(phase))
+                            .font(.headline)
+                    } else {
+                        Text("Uninstalling...")
+                            .font(.headline)
+                    }
                     ProgressView(value: progress)
                         .frame(maxWidth: 300)
                     Text(item)
@@ -58,6 +67,10 @@ struct UninstallerView: View {
                             .font(.caption)
                             .foregroundStyle(.orange)
                     }
+                    Button("Back to apps list") {
+                        viewModel.state = .ready
+                    }
+                    .buttonStyle(.bordered)
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -102,6 +115,17 @@ struct UninstallerView: View {
             }
         } message: {
             Text("The app did not quit cleanly. Force quitting may interrupt unsaved work.")
+        }
+    }
+
+    private func phaseIcon(_ phase: UninstallPhase?) -> String {
+        switch phase {
+        case .unloadingLaunchItems: return "gearshape.arrow.triangle.2.circlepath"
+        case .removingLoginItems: return "person.badge.minus"
+        case .deletingFiles: return "trash"
+        case .cleaningMetadata: return "paintbrush"
+        case .refreshingDatabase: return "arrow.triangle.2.circlepath"
+        case nil: return "trash"
         }
     }
 

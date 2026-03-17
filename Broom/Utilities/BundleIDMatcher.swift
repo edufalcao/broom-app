@@ -1,18 +1,29 @@
 import Foundation
 
 enum BundleIDMatcher {
-    static func matches(directoryName: String, againstInstalled installed: Set<String>) -> Bool {
-        let normalized = directoryName.lowercased()
+    static func strictMatch(candidate: String, against installed: Set<String>) -> Bool {
+        guard !candidate.isEmpty else { return false }
+        let normalized = candidate.lowercased()
 
-        // Direct match
         if installed.contains(normalized) { return true }
 
-        // Reverse-domain prefix match
+        for id in installed {
+            if normalized.hasPrefix(id + ".") || id.hasPrefix(normalized + ".") { return true }
+        }
+
+        return false
+    }
+
+    static func broadMatch(candidate: String, against installed: Set<String>) -> Bool {
+        guard !candidate.isEmpty else { return false }
+        let normalized = candidate.lowercased()
+
+        if installed.contains(normalized) { return true }
+
         for id in installed {
             if normalized.hasPrefix(id) || id.hasPrefix(normalized) { return true }
         }
 
-        // Normalized match (remove dots, hyphens)
         let strippedName = normalized.replacingOccurrences(of: ".", with: "")
             .replacingOccurrences(of: "-", with: "")
         for id in installed {
@@ -21,7 +32,6 @@ enum BundleIDMatcher {
             if strippedName == strippedID { return true }
         }
 
-        // Substring containment: check if any installed app's short name is in the directory
         for id in installed {
             let parts = id.split(separator: ".")
             if let lastPart = parts.last {
@@ -34,8 +44,11 @@ enum BundleIDMatcher {
         return false
     }
 
+    static func matches(directoryName: String, againstInstalled installed: Set<String>) -> Bool {
+        broadMatch(candidate: directoryName, against: installed)
+    }
+
     static func inferAppName(from directoryName: String) -> String {
-        // Try to extract a human-readable name from a bundle ID or directory name
         let parts = directoryName.split(separator: ".")
         if parts.count >= 3 {
             if let lastPart = parts.last,
@@ -44,7 +57,6 @@ enum BundleIDMatcher {
             {
                 return String(parts[parts.count - 2])
             }
-            // Looks like a bundle ID: com.company.AppName -> AppName
             return String(parts.last!)
         }
         return directoryName

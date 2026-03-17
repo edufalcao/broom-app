@@ -23,7 +23,7 @@ struct ConfidenceBadge: View {
         switch confidence {
         case .high: return "Safe to remove"
         case .medium: return "Likely orphaned"
-        case .low: return "Uncertain"
+        case .low: return "Review before removing"
         }
     }
 

@@ -134,7 +134,7 @@ class LargeFilesViewModel {
 
             for await progress in cleaner.clean(items: items, moveToTrash: true) {
                 switch progress {
-                case .progress: continue
+                case .phase, .progress: continue
                 case .complete(let report):
                     freedBytes = report.freedBytes
                     cleaned = report.itemsCleaned

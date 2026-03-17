@@ -1,7 +1,7 @@
 # Broom — Technical Architecture
 
-> **Version:** 1.0.0
-> **Date:** 2026-03-15
+> **Version:** 1.1.0
+> **Date:** 2026-03-16
 
 ---
 
@@ -46,8 +46,9 @@
 │                                                              │
 │  FileScanner ──── FileCleaner ──── AppInventory              │
 │  OrphanDetector ──── AppUninstaller ──── LargeFileScanner    │
-│  PermissionChecker ──── RunningAppDetector ────              │
-│  NotificationManager                                         │
+│  UninstallArtifactPlanner ──── LaunchServicesManager         │
+│  LoginItemManager ──── PermissionChecker ────                │
+│  RunningAppDetector ──── NotificationManager                 │
 │                                                              │
 │  Actors isolate file-system work and Spotlight-backed scans. │
 │  Preferences are injected as value snapshots.                │
@@ -56,7 +57,7 @@
 │                                                              │
 │  Constants ──── SizeFormatter ──── Logger ──── SafeDelete    │
 │  ExclusionList ──── BundleIDMatcher ──── AppPreferences      │
-│  ReleaseNotes                                                │
+│  DeletePolicy ──── ProtectedDataPolicy ──── ReleaseNotes     │
 │                                                              │
 │  Stateless helpers and small value types shared everywhere.  │
 └──────────────────────────────────────────────────────────────┘
@@ -86,7 +87,8 @@ Broom/
 │   ├── CleanCategory.swift                 # Group of cleaner items
 │   ├── ScanResult.swift                    # Cleaner scan result snapshot
 │   ├── OrphanedApp.swift                   # Orphan grouping + confidence
-│   ├── InstalledApp.swift                  # Installed app + associated files
+│   ├── InstalledApp.swift                  # Installed app, InstalledAppSnapshot
+│   ├── UninstallArtifactSource.swift       # Source tag for uninstall artifacts
 │   ├── LargeFile.swift                     # Large-file finder result
 │   └── CleanReport.swift                   # Post-clean/uninstall summary
 │
@@ -107,9 +109,12 @@ Broom/
 │   ├── ServiceProtocols.swift              # Dependency-injected service interfaces
 │   ├── FileScanner.swift                   # Parallel cleaner category scanning
 │   ├── FileCleaner.swift                   # Trash or permanent-delete execution
-│   ├── AppInventory.swift                  # Standard + Spotlight app discovery
-│   ├── OrphanDetector.swift                # Library leftover detection + confidence
+│   ├── AppInventory.swift                  # Standard + Spotlight app discovery + snapshot
+│   ├── OrphanDetector.swift                # Suppression-first orphan detection
 │   ├── AppUninstaller.swift                # Uninstall plan creation + execution
+│   ├── UninstallArtifactPlanner.swift      # 11-provider artifact discovery for uninstalls
+│   ├── LaunchServicesManager.swift         # Unregister apps and refresh LS database
+│   ├── LoginItemManager.swift              # Unload launch agents/daemons
 │   ├── LargeFileScanner.swift              # Recursive home-directory large-file scan
 │   ├── PermissionChecker.swift             # Full Disk Access checks and prompts
 │   ├── RunningAppDetector.swift            # Running-app matching and termination helpers
@@ -118,9 +123,11 @@ Broom/
 └── Utilities/
     ├── Constants.swift                     # Scan paths and protected locations
     ├── SizeFormatter.swift                 # ByteCountFormatter wrapper
-    ├── BundleIDMatcher.swift               # Bundle-ID and app-name matching
+    ├── BundleIDMatcher.swift               # Strict (orphan) and broad (uninstall) matching
     ├── ExclusionList.swift                 # Hardcoded + user safe list logic
-    ├── SafeDelete.swift                    # Trash/delete helpers with Result output
+    ├── SafeDelete.swift                    # Policy-aware trash/delete execution boundary
+    ├── DeletePolicy.swift                  # Path validation, symlink checks, protected data
+    ├── ProtectedDataPolicy.swift           # Protected data family definitions
     ├── Logger.swift                        # os.Logger categories
     ├── AppPreferences.swift                # Sendable preference snapshot + defaults
     └── ReleaseNotes.swift                  # In-app release note content
@@ -134,19 +141,23 @@ BroomTests/
 ├── AppRouterTests.swift
 ├── AppUninstallerTests.swift
 ├── BundleIDMatcherTests.swift
+├── DeletePolicyTests.swift
 ├── DockerHomebrewScanTests.swift
 ├── ExclusionListTests.swift
 ├── FileCleanerTests.swift
 ├── FileScannerTests.swift
 ├── LargeFileScannerTests.swift
 ├── LargeFilesViewModelTests.swift
+├── MetadataCleanupTests.swift
 ├── ModelTests.swift
 ├── NotificationManagerTests.swift
 ├── OrphanCategoryTests.swift
 ├── OrphanDetectorTests.swift
+├── ProtectedDataPolicyTests.swift
 ├── RunningAppDetectorTests.swift
 ├── ScanViewModelTests.swift
 ├── SizeFormatterTests.swift
+├── UninstallArtifactPlannerTests.swift
 └── UninstallerViewModelTests.swift
 ```
 
@@ -368,13 +379,14 @@ FileScanner (actor)
 
 ### 4.2 AppInventory
 
-Builds a comprehensive map of installed applications.
+Builds a comprehensive map of installed applications. Also produces an `InstalledAppSnapshot` used by the orphan detector to match candidates against the live system state.
 
 ```
 AppInventory (actor)
 ├── loadAllApps() async -> [InstalledApp]
 │   ├── Enumerates /Applications/ recursively (handles subdirectories)
 │   ├── Enumerates ~/Applications/
+│   ├── Enumerates extended discovery roots (System/Applications, Homebrew Caskroom, Setapp)
 │   ├── Supplements results with Spotlight-discovered .app bundles in non-standard locations
 │   ├── Reads Info.plist for each .app bundle:
 │   │   ├── CFBundleIdentifier
@@ -384,6 +396,12 @@ AppInventory (actor)
 │   ├── Computes bundle size
 │   ├── Loads app icon via NSWorkspace.icon(forFile:)
 │   └── Marks system/Apple apps
+│
+├── buildSnapshot() async -> InstalledAppSnapshot
+│   ├── Collects installed bundle IDs (lowercased) and app URLs
+│   ├── Collects running bundle IDs via NSWorkspace
+│   ├── Collects launch item labels from LaunchAgents/LaunchDaemons
+│   └── Used by OrphanDetector as a single point-in-time view of system state
 │
 ├── installedBundleIdentifiers() async -> Set<String>
 │   └── Returns lowercased set of all bundle IDs, including Spotlight-supplemented apps
@@ -404,44 +422,70 @@ AppInventory (actor)
     └── Uses MDItemCreateWithURL + kMDItemLastUsedDate (Spotlight metadata)
 ```
 
+**`InstalledAppSnapshot`:**
+```swift
+struct InstalledAppSnapshot: Sendable {
+    let installedBundleIDs: Set<String>
+    let installedAppURLs: Set<URL>
+    let runningBundleIDs: Set<String>
+    let launchItemLabels: Set<String>
+}
+```
+
 ### 4.3 OrphanDetector
 
-Identifies files that belong to apps no longer installed.
+Identifies files that belong to apps no longer installed. Uses a suppression-first architecture: every candidate must pass all nine suppression gates before being surfaced to the user. This ensures only stale, high-confidence leftovers appear in results.
 
 ```
 OrphanDetector (actor)
 ├── detectOrphans() async -> [OrphanedApp]
-│   ├── Gets installed bundle IDs from AppInventory
+│   ├── Builds an InstalledAppSnapshot from AppInventory
+│   ├── Loads receipt bundle IDs and Spotlight bundle IDs
 │   ├── Scans each Library subdirectory
-│   ├── For each entry, attempts to match against installed apps
-│   ├── Unmatched entries → candidate orphans
-│   ├── Filters out protected/excluded entries
-│   ├── Groups by inferred app name
-│   ├── Assigns confidence scores using Saved State, receipt, and Spotlight signals
+│   ├── For each entry, applies 9 suppression gates:
+│   │   1. Pattern gate: only reverse-DNS, .savedState, .binarycookies, and Preferences .plist
+│   │   2. Exclusion list (built-in + user safe list)
+│   │   3. Protected data family (ProtectedDataPolicy)
+│   │   4. Installed app match (strictMatch against snapshot)
+│   │   5. Running app match (strictMatch against running bundle IDs)
+│   │   6. Launch item label match
+│   │   7. Spotlight/LaunchServices existence (suppresses if still registered)
+│   │   8. Size threshold (< 4 KB suppressed)
+│   │   9. Stale-age threshold (recently modified items suppressed, default 30 days)
+│   ├── Surviving candidates grouped by inferred app name
+│   ├── Assigns confidence scores
 │   └── Sorts by total size descending
 │
 └── assignConfidence(locations:receiptBundleIDs:spotlightBundleIDs:) -> OrphanConfidence
     ├── High: Saved Application State + bundle-ID pattern, or receipt evidence
-    ├── Medium: bundle-ID pattern or Spotlight evidence
-    └── Low: weak name-only evidence
+    ├── Medium: bundle-ID pattern
+    └── Low: weak evidence only
 ```
+
+**Design rationale:** Spotlight and receipt signals are used as suppression inputs (if Spotlight still knows about the app, suppress the candidate) rather than confidence boosters. This avoids surfacing ambiguous results that could lead to accidental deletion.
 
 ### 4.4 AppUninstaller
 
-Handles the complete removal of an application.
+Handles the complete removal of an application. Delegates artifact discovery to `UninstallArtifactPlanner` and performs pre-delete and post-delete metadata cleanup via `LoginItemManager` and `LaunchServicesManager`.
 
 ```
 AppUninstaller (actor)
 ├── prepareUninstall(app: InstalledApp) async -> UninstallPlan
-│   ├── Finds all associated files via AppInventory.findAssociatedFiles()
+│   ├── Uses UninstallArtifactPlanner to discover all artifacts (11 providers)
 │   ├── Checks if app is currently running
 │   ├── Calculates total size to be freed
-│   └── Returns plan with all files and metadata
+│   └── Returns plan with all files, tagged by UninstallArtifactSource
 │
 ├── executeUninstall(plan: UninstallPlan, moveToTrash: Bool) -> AsyncStream<UninstallProgress>
+│   ├── Pre-delete: unload launch agents/daemons (LoginItemManager)
+│   ├── Pre-delete: remove login items
 │   ├── Remove associated Library files first
 │   ├── Remove the .app bundle last (so if interrupted, app still shows as installed)
+│   ├── Post-delete: unregister app from LaunchServices (LaunchServicesManager)
+│   ├── Post-delete: refresh LaunchServices database
+│   ├── Reports progress via UninstallPhase enum
 │   └── Finishes with .complete(CleanReport)
+│   Note: all metadata cleanup steps are non-fatal — failures are logged but do not block uninstall.
 ```
 
 **`UninstallPlan`:**
@@ -456,15 +500,68 @@ struct UninstallPlan {
 }
 ```
 
+### 4.4.1 UninstallArtifactPlanner
+
+Discovers all files associated with an application using 11 artifact providers. Each artifact is tagged with an `UninstallArtifactSource` for grouped display in the UI.
+
+```
+UninstallArtifactPlanner (struct)
+├── planArtifacts(for app: InstalledApp) -> [CleanableItem]
+│   ├── Generates name variants (no-space, hyphenated, underscored, lowercase, version/channel trimmed)
+│   ├── Deduplicates by standardized path
+│   ├── Queries 11 artifact providers:
+│   │   1. User data (Application Support, Containers)
+│   │   2. Preferences (plists, ByHost)
+│   │   3. Caches
+│   │   4. Group Containers
+│   │   5. Web data (WebKit, Cookies, HTTPStorages)
+│   │   6. Saved Application State
+│   │   7. Logs and DiagnosticReports
+│   │   8. Launch items (agents, daemons)
+│   │   9. Privileged helper tools
+│   │   10. Package receipts (/var/db/receipts)
+│   │   11. Application Scripts
+│   └── Returns items sorted by size descending
+```
+
+### 4.4.2 LaunchServicesManager
+
+Cleans up LaunchServices metadata after an app is deleted.
+
+```
+LaunchServicesManager (struct)
+├── unregisterApp(at bundlePath: URL) -> Bool
+│   └── Runs lsregister -u to remove the app from the LS database
+│
+└── refreshDatabase() -> Bool
+    └── Runs lsregister -kill -r to rebuild the LS database (10-second timeout)
+```
+
+### 4.4.3 LoginItemManager
+
+Unloads launch agents and daemons that belong to the app being uninstalled.
+
+```
+LoginItemManager (struct)
+├── removeLoginItems(matching bundleID: String) -> [URL]
+│   ├── Searches user and system LaunchAgents and LaunchDaemons
+│   ├── Matches plist filenames against the bundle ID
+│   └── Unloads each match via launchctl
+│
+├── unloadLaunchAgent(at path: URL) -> Bool
+└── unloadLaunchDaemon(at path: URL) -> Bool
+```
+
 ### 4.5 FileCleaner
 
-Safely removes files from disk.
+Safely removes files from disk. All deletions go through `SafeDelete`, which validates each path against `DeletePolicy` before operating.
 
 ```
 FileCleaner (actor)
 ├── clean(items: [CleanableItem], moveToTrash: Bool) -> AsyncStream<CleanProgress>
 │   ├── Logs all target paths before starting
 │   ├── Iterates items sequentially (parallel deletion is risky)
+│   ├── Each item yields a DeleteResult (success/blocked/failed)
 │   ├── Yields progress for each item
 │   └── Finishes with .complete(CleanReport)
 │
@@ -508,6 +605,52 @@ RunningAppDetector (static methods)
 └── forceTerminate(bundleIdentifier: String) -> Bool
     └── Call forceTerminate() (immediate)
 ```
+
+### 4.8 SafeDelete and DeletePolicy
+
+`SafeDelete` is the single execution boundary for all file deletions. Before trashing or permanently deleting a file, it validates the path through `DeletePolicy`.
+
+```
+SafeDelete (enum, static methods)
+├── moveToTrash(_ url:, context:, expectedSize:) -> DeleteResult
+└── deletePermanently(_ url:, context:, expectedSize:) -> DeleteResult
+    Both validate through DeletePolicy.validate() before operating.
+
+DeletePolicy (enum, static methods)
+├── validate(path: URL, context: DeleteContext) -> DeleteValidationResult
+│   ├── Rejects relative paths
+│   ├── Blocks protected system prefixes (/System, /usr, /bin, /sbin, /Library/Apple, /private/var/db)
+│   ├── Allows /var/db/receipts in explicitUninstall context only
+│   ├── Blocks missing paths
+│   ├── Blocks symlinks that resolve to protected locations
+│   ├── Blocks protected data families in genericClean context (via ProtectedDataPolicy)
+│   └── Blocks paths where the parent directory is not writable
+```
+
+**`DeleteContext`** distinguishes generic cleanup scans (`.genericClean`) from explicit user-initiated uninstalls (`.explicitUninstall`). Protected data families and receipt paths are treated differently depending on the context.
+
+**`DeleteResult`** is a three-case enum: `.success`, `.blocked(reason)`, or `.failed(error)`.
+
+### 4.9 ProtectedDataPolicy
+
+Defines data families whose leftovers should never appear in generic orphan scans because accidental deletion could cause data loss or security issues.
+
+Six protected families:
+1. **Password managers** (1Password, LastPass, Bitwarden, KeePassXC, Dashlane, Enpass, RoboForm)
+2. **VPN / proxy tools** (Mullvad, NordVPN, ExpressVPN, WireGuard, Tailscale, PIA, Surfshark, ProtonVPN)
+3. **Browsers** (Safari, Chrome, Firefox, Thunderbird, Arc, Brave, Edge, Opera, Vivaldi)
+4. **AI model / assistant data** (ChatGPT, Claude, Copilot, LM Studio, Ollama)
+5. **iCloud-synced data** (iCloud, MobileSync, CloudDaemon, Bird)
+6. **Automation tools** (Keyboard Maestro, Alfred, Raycast, Hammerspoon, BetterTouchTool, Rectangle, Karabiner)
+
+Matching uses both bundle ID prefixes and path component substrings.
+
+### 4.10 BundleIDMatcher
+
+Provides two matching strategies for different safety contexts:
+
+- **`strictMatch`** (used by OrphanDetector): exact match or reverse-DNS prefix relationship only. Minimizes false negatives to avoid suppressing true orphans, but also avoids false positives from loose name matching.
+- **`broadMatch`** (used by UninstallArtifactPlanner): adds stripped-punctuation matching and short-name substring matching. Acceptable here because the user explicitly chose the app to uninstall.
 
 ---
 
@@ -724,8 +867,16 @@ Background (actor-isolated)
 ├── FileScanner.scanAll()          → runs on FileScanner actor
 ├── FileCleaner.clean()            → runs on FileCleaner actor
 ├── AppInventory.loadAllApps()     → runs on AppInventory actor
+├── AppInventory.buildSnapshot()   → runs on AppInventory actor
 ├── OrphanDetector.detectOrphans() → runs on OrphanDetector actor
 └── AppUninstaller.execute()       → runs on AppUninstaller actor
+
+Synchronous (called from actor context)
+├── UninstallArtifactPlanner.planArtifacts()  → struct, called within AppUninstaller
+├── LaunchServicesManager.unregisterApp()     → struct, subprocess invocation
+├── LoginItemManager.removeLoginItems()       → struct, subprocess invocation
+├── DeletePolicy.validate()                   → static, pure validation
+└── ProtectedDataPolicy.isProtected()         → static, pure lookup
 ```
 
 **Rules:**
@@ -870,11 +1021,15 @@ enum BroomError: LocalizedError {
 |-----------|--------------|
 | **Models** | Direct instantiation, verify computed properties |
 | **SizeFormatter** | Test all byte ranges: 0, KB, MB, GB, TB |
-| **BundleIDMatcher** | Test exact, prefix, contains, and normalized matching |
+| **BundleIDMatcher** | Test strictMatch and broadMatch strategies, edge cases |
 | **ExclusionList** | Test hardcoded + user exclusions |
 | **FileScanner** | Create temp directory with known structure, verify scan results |
-| **OrphanDetector** | Mock AppInventory returning known bundle IDs, verify orphan detection |
+| **OrphanDetector** | Mock AppInventory snapshot, verify all 9 suppression gates |
 | **AppInventory** | Test Info.plist parsing with sample plists |
+| **UninstallArtifactPlanner** | Test all 11 providers, name variant generation, deduplication |
+| **DeletePolicy** | Test system path blocking, symlink safety, context-dependent behavior |
+| **ProtectedDataPolicy** | Test bundle ID and path component matching for all 6 families |
+| **MetadataCleanup** | Test LaunchServicesManager and LoginItemManager integration |
 
 ### 10.2 Integration Tests
 

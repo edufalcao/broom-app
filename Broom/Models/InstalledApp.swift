@@ -1,6 +1,13 @@
 import AppKit
 import Foundation
 
+struct InstalledAppSnapshot: Sendable {
+    let installedBundleIDs: Set<String>
+    let installedAppURLs: Set<URL>
+    let runningBundleIDs: Set<String>
+    let launchItemLabels: Set<String>
+}
+
 struct InstalledApp: Identifiable, Hashable {
     let id: UUID
     let name: String

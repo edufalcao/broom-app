@@ -16,6 +16,9 @@ actor OrphanDetector: OrphanDetecting {
     private let locations: OrphanDetectorLocations
     private let preferencesProvider: @Sendable () -> AppPreferences
 
+    /// Minimum size threshold: candidates smaller than this are not worth showing.
+    private static let minimumSizeThreshold: Int64 = 4096
+
     init(
         appInventory: AppInventoryServing,
         fileManager: FileManager = .default,
@@ -29,40 +32,64 @@ actor OrphanDetector: OrphanDetecting {
     }
 
     func detectOrphans() async -> [OrphanedApp] {
-        let installedIDs = await appInventory.installedBundleIdentifiers()
+        let snapshot = await appInventory.buildSnapshot()
         let preferences = preferencesProvider()
         let receiptBundleIDs = loadReceiptBundleIDs()
         let spotlightBundleIDs = await querySpotlightBundleIDs()
 
-        // Only installed apps suppress orphan candidates.
-        // Receipt and Spotlight signals are reserved for confidence scoring.
-        let allKnownIDs = installedIDs
+        let staleAgeThreshold = Calendar.current.date(
+            byAdding: .day,
+            value: -preferences.orphanStaleAgeDays,
+            to: Date()
+        ) ?? Date()
 
         var orphanMap: [String: [CleanableItem]] = [:]
 
         for dir in locations.librarySubdirectories {
             guard let contents = try? fileManager.contentsOfDirectory(
-                at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+                at: dir, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]
             ) else { continue }
 
             for entry in contents {
                 let name = entry.lastPathComponent
 
-                // Skip protected entries
+                // --- Suppression gate: only candidates that pass ALL checks survive ---
+
+                // 1. Pattern gate: only consider entries matching strict orphan patterns
+                guard matchesOrphanPattern(name: name, parentDir: dir) else { continue }
+
+                // 2. Protected path check (ExclusionList built-in rules + user safe-list)
                 if ExclusionList.isExcluded(entry, userEntries: preferences.safeListEntries) { continue }
 
-                // Skip if matches an installed app
-                if BundleIDMatcher.matches(directoryName: name, againstInstalled: allKnownIDs) { continue }
+                // 3. Protected data-family check (ProtectedDataPolicy)
+                if ProtectedDataPolicy.isProtected(path: entry) { continue }
 
-                // Skip tiny entries
+                // 4. Installed app snapshot match (strict match only)
+                if BundleIDMatcher.strictMatch(candidate: name, against: snapshot.installedBundleIDs) { continue }
+
+                // 5. Running app match
+                if BundleIDMatcher.strictMatch(candidate: name, against: snapshot.runningBundleIDs) { continue }
+
+                // 6. Launch item match
+                if matchesLaunchItem(name: name, launchItemLabels: snapshot.launchItemLabels) { continue }
+
+                // 7. Spotlight/LaunchServices existence — suppress if Spotlight shows it as installed
+                if spotlightBundleIDs.contains(name.lowercased()) { continue }
+
+                // 8. Size threshold — suppress tiny entries (< 4KB)
                 let size = directorySize(at: entry)
-                guard size > 1024 else { continue }
+                guard size >= Self.minimumSizeThreshold else { continue }
+
+                // 9. Recent modification threshold — suppress recently modified candidates
+                let modDate = modificationDate(at: entry)
+                if modDate > staleAgeThreshold { continue }
 
                 let appName = BundleIDMatcher.inferAppName(from: name)
                 let item = CleanableItem(
                     path: entry,
                     name: "\(dir.lastPathComponent)/\(name)",
                     size: size,
+                    modifiedDate: modDate,
                     isSelected: false
                 )
 
@@ -88,6 +115,44 @@ actor OrphanDetector: OrphanDetecting {
         return orphans.sorted { $0.totalSize > $1.totalSize }
     }
 
+    // MARK: - Orphan Pattern Matching
+
+    /// Only entries matching one of these strict patterns are considered orphan candidates.
+    /// This prevents low-signal name-only heuristics from generating false positives.
+    private func matchesOrphanPattern(name: String, parentDir: URL) -> Bool {
+        // Reverse-DNS bundle-style directories (e.g., com.company.AppName)
+        let parts = name.split(separator: ".")
+        if parts.count >= 3 {
+            return true
+        }
+
+        // .savedState directories
+        if name.hasSuffix(".savedState") {
+            return true
+        }
+
+        // .binarycookies files
+        if name.hasSuffix(".binarycookies") {
+            return true
+        }
+
+        // .plist files in Preferences directory
+        let parentName = parentDir.lastPathComponent
+        if parentName == "Preferences" && name.hasSuffix(".plist") && parts.count >= 2 {
+            return true
+        }
+
+        return false
+    }
+
+    // MARK: - Launch Item Matching
+
+    private func matchesLaunchItem(name: String, launchItemLabels: Set<String>) -> Bool {
+        guard !launchItemLabels.isEmpty else { return false }
+        let lowered = name.lowercased()
+        return launchItemLabels.contains { lowered.hasPrefix($0.lowercased()) }
+    }
+
     // MARK: - Confidence Scoring
 
     private func assignConfidence(
@@ -109,20 +174,13 @@ actor OrphanDetector: OrphanDetecting {
             return receiptBundleIDs.contains(name)
         }
 
-        // Check if Spotlight has seen this bundle ID before
-        // (means macOS previously indexed this app)
-        let hasSpotlightRecord = locations.contains { loc in
-            let name = loc.path.lastPathComponent.lowercased()
-            return spotlightBundleIDs.contains(name)
-        }
-
         // High: multiple strong signals
         if (hasSavedState && hasBundleIDPattern) || hasReceipt {
             return .high
         }
 
         // Medium: at least one moderate signal
-        if hasBundleIDPattern || hasSpotlightRecord {
+        if hasBundleIDPattern {
             return .medium
         }
 
@@ -214,6 +272,11 @@ actor OrphanDetector: OrphanDetecting {
             }
         }
         return nil
+    }
+
+    private func modificationDate(at url: URL) -> Date {
+        (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
+            .contentModificationDate ?? Date.distantPast
     }
 
     private func directorySize(at url: URL) -> Int64 {

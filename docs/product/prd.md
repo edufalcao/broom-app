@@ -1,9 +1,9 @@
 # Broom — Product Requirements Document
 
-> **Version:** 1.0.0
+> **Version:** 1.1.0
 > **Author:** Eduardo
-> **Date:** 2026-03-15
-> **Status:** Implemented (v1.0.0 current)
+> **Date:** 2026-03-16
+> **Status:** Implemented (v1.1.0 current)
 
 ---
 
@@ -106,10 +106,10 @@ Users can add paths to a "safe list" in Settings. These paths are never scanned 
 #### 2.2.1 How It Works
 
 1. **Build an inventory of installed apps:**
-   - Enumerate `/Applications/` and `~/Applications/` recursively
+   - Enumerate `/Applications/`, `~/Applications/`, and extended discovery roots (System/Applications, Homebrew Caskroom, Setapp) recursively
    - Read `Info.plist` from each `.app` bundle to extract `CFBundleIdentifier`
    - Supplement with `NSMetadataQuery` (Spotlight) for apps in non-standard locations
-   - Build a `Set<String>` of all known bundle identifiers (lowercased)
+   - Build an `InstalledAppSnapshot` containing all installed bundle IDs, running bundle IDs, app URLs, and launch item labels
 
 2. **Scan Library directories for orphans:**
    - `~/Library/Application Support/`
@@ -121,19 +121,19 @@ Users can add paths to a "safe list" in Settings. These paths are never scanned 
    - `~/Library/WebKit/`
    - `~/Library/HTTPStorages/`
 
-3. **Match each entry against installed apps:**
-   - Direct bundle ID match (e.g., `com.company.AppName` exists in installed set)
-   - Reverse-domain-name prefix match
-   - App name substring match (e.g., directory `Slack` matches bundle ID `com.tinyspeck.slackmacgap`)
-   - If no match found → candidate orphan
+3. **Suppression-first filtering (9 gates):**
+   Every candidate must pass all nine checks before being surfaced. This ensures only stale, high-confidence leftovers appear in results:
+   1. **Pattern gate:** only entries matching strict patterns (reverse-DNS bundle IDs, `.savedState`, `.binarycookies`, Preferences `.plist`) are considered
+   2. **Exclusion list:** built-in rules and user safe list
+   3. **Protected data families:** password managers, VPNs, browsers, AI tools, iCloud data, and automation tools are never surfaced (see 2.2.3)
+   4. **Installed app match:** strict bundle-ID matching against snapshot
+   5. **Running app match:** strict match against running bundle IDs
+   6. **Launch item match:** suppress if name matches an active launch item label
+   7. **Spotlight/LaunchServices:** suppress if Spotlight still knows about the app
+   8. **Size threshold:** entries smaller than 4 KB are suppressed
+   9. **Stale-age threshold:** recently modified entries are suppressed (default: 30 days, configurable in Settings)
 
-4. **Filter out false positives:**
-   - Protected prefixes: `com.apple.*`, system frameworks
-   - Known shared frameworks and runtimes (e.g., `com.electron.*`, `org.chromium.*`)
-   - Entries smaller than 1KB (not worth showing)
-   - User-defined safe list
-
-5. **Present results grouped by inferred app name:**
+4. **Present results grouped by inferred app name:**
    - Show all orphan locations for the same app together
    - Show total size per orphaned app
    - Default: **unselected** (user must explicitly check items to delete)
@@ -144,9 +144,24 @@ Each orphan gets a confidence score to help users decide:
 
 | Confidence | Criteria | UI Treatment |
 |------------|----------|--------------|
-| **High** | Exact bundle ID match + app not in `/Applications/` + entry in `Saved Application State` | Show with clear "safe to remove" indicator |
-| **Medium** | Bundle ID pattern match but no exact match | Show with neutral indicator |
-| **Low** | Name-only match, could be a shared framework | Show with warning indicator, explain uncertainty |
+| **High** | Saved Application State + bundle-ID pattern, or receipt evidence | Show with clear "safe to remove" indicator |
+| **Medium** | Bundle-ID pattern match | Show with neutral indicator |
+| **Low** | Weak evidence only | Show with warning indicator, explain uncertainty |
+
+#### 2.2.3 Protected Data Families
+
+Leftovers belonging to these app families are **never** surfaced in orphan scan results, regardless of other signals. This prevents accidental deletion of sensitive data:
+
+| Family | Examples |
+|--------|----------|
+| **Password managers** | 1Password, LastPass, Bitwarden, KeePassXC, Dashlane |
+| **VPN / proxy tools** | Mullvad, NordVPN, ExpressVPN, WireGuard, Tailscale |
+| **Browsers** | Safari, Chrome, Firefox, Arc, Brave, Edge |
+| **AI tools** | ChatGPT, Claude, Copilot, LM Studio, Ollama |
+| **iCloud-synced data** | iCloud, MobileSync, CloudDaemon |
+| **Automation tools** | Keyboard Maestro, Alfred, Raycast, Hammerspoon |
+
+These families are defined in `ProtectedDataPolicy` and matched by both bundle ID prefix and path component.
 
 ---
 
@@ -165,18 +180,22 @@ Each orphan gets a confidence score to help users decide:
    - Distinguish between user-installed and system apps
 
 2. **App Detail / Uninstall Preview:**
-   - When user selects an app, show all associated files:
+   - When user selects an app, the `UninstallArtifactPlanner` discovers all associated files using 11 artifact providers:
      - The `.app` bundle itself
      - `~/Library/Application Support/<bundleID or appName>/`
-     - `~/Library/Caches/<bundleID>/`
-     - `~/Library/Preferences/<bundleID>.plist`
+     - `~/Library/Caches/<bundleID or appName>/`
+     - `~/Library/Preferences/<bundleID>.plist` (including ByHost variants)
      - `~/Library/Containers/<bundleID>/`
      - `~/Library/Group Containers/*<bundleID>*/`
      - `~/Library/Saved Application State/<bundleID>.savedState/`
-     - `~/Library/WebKit/<bundleID>/`
-     - `~/Library/HTTPStorages/<bundleID>/`
-     - `~/Library/Logs/<bundleID>/` or `~/Library/Logs/<appName>/`
-     - LaunchAgents/LaunchDaemons (`~/Library/LaunchAgents/`, `/Library/LaunchAgents/`)
+     - `~/Library/WebKit/<bundleID>/`, `~/Library/Cookies/<bundleID>.binarycookies`, `~/Library/HTTPStorages/<bundleID>/`
+     - `~/Library/Logs/<bundleID or appName>/` and matching DiagnosticReports
+     - LaunchAgents/LaunchDaemons (`~/Library/LaunchAgents/`, `/Library/LaunchAgents/`, `/Library/LaunchDaemons/`)
+     - Privileged helper tools (`/Library/PrivilegedHelperTools/`)
+     - Package receipts (`/var/db/receipts/`)
+     - Application Scripts (`~/Library/Application Scripts/<bundleID>/`)
+   - App name variants (no-space, hyphenated, underscored, lowercase, version/channel trimmed) are generated to find artifacts stored under non-standard names
+   - Results are grouped by artifact source with section headers in the UI
    - Show individual sizes for each location
    - Show total size that will be freed
    - All items selected by default (user can uncheck to keep specific files)
@@ -184,9 +203,12 @@ Each orphan gets a confidence score to help users decide:
 3. **Uninstall Process:**
    - Confirm with dialog: "Uninstall AppName? This will remove X files totaling Y MB."
    - If the app is currently running: prompt to quit it first (offer to force-quit)
+   - **Pre-delete:** unload matching launch agents/daemons and remove login items
    - Move all selected files to Trash (not permanent delete)
-   - Show progress bar during removal
+   - **Post-delete:** unregister the app from LaunchServices and refresh the LS database
+   - Show progress bar during removal (with phase reporting)
    - Show summary: "Freed X MB. Files moved to Trash."
+   - All metadata cleanup steps are non-fatal — failures are logged but do not block the uninstall
 
 4. **Protected Apps (cannot uninstall):**
    - System apps in `/System/Applications/` — hidden from the list entirely
@@ -195,24 +217,26 @@ Each orphan gets a confidence score to help users decide:
 
 #### 2.3.2 File Discovery Strategy
 
-Finding all files associated with an app uses multiple strategies:
+The `UninstallArtifactPlanner` finds all files associated with an app using bundle ID matching and name variant generation:
 
 ```
 Strategy 1: Bundle ID matching
   - Read CFBundleIdentifier from the app's Info.plist
-  - Search all Library subdirectories for entries matching the bundle ID
+  - Search all 11 artifact locations for entries matching the bundle ID
 
-Strategy 2: App name matching
-  - Use the app's display name (CFBundleDisplayName or CFBundleName)
-  - Search for directories/files containing the app name
+Strategy 2: Name variant matching
+  - Generate variants from the app's display name:
+    - Original, no-space, hyphenated, underscored, and lowercase forms
+    - Version and channel suffixes (Beta, Canary, Dev, etc.) are trimmed
+  - Search Application Support, Caches, and Logs for variant matches
 
-Strategy 3: Developer/organization matching
-  - Extract the organization from the bundle ID (e.g., "com.spotify" → "spotify")
-  - Search for related entries (catches shared components)
+Strategy 3: Glob matching
+  - For directories with mixed content (Group Containers, ByHost, receipts, helpers),
+    enumerate entries and match filenames containing the bundle ID
 
 Strategy 4: LaunchAgent/LaunchDaemon discovery
-  - Parse all plist files in LaunchAgents/LaunchDaemons directories
-  - Match the Label or Program fields against the app's bundle ID or paths
+  - Enumerate plist files in LaunchAgents and LaunchDaemons directories
+  - Match filenames against the app's bundle ID
 ```
 
 #### 2.3.3 Drag-and-Drop Uninstall
@@ -531,6 +555,9 @@ This is the most critical aspect of the app. A cleaner that deletes the wrong fi
 | **8** | Dry-run logging | Every path scheduled for deletion is logged via `os.Logger` before deletion |
 | **9** | User safe list | Custom exclusions that persist across scans |
 | **10** | Protected app list | System and Apple apps cannot be uninstalled |
+| **11** | Delete policy validation | `DeletePolicy` enforces path safety, symlink checks, and protected-data rules at the operation boundary |
+| **12** | Protected data families | Sensitive app data (password managers, VPNs, browsers, AI tools) never surfaced in generic scans (see §2.2.3) |
+| **13** | Stale-age threshold | Recently modified items excluded from orphan results (default 30 days, configurable) |
 
 ### 5.2 Error Handling
 
@@ -621,9 +648,9 @@ These features are planned for future versions.
 
 | Feature | Version | Description |
 |---------|---------|-------------|
-| **Duplicate File Finder** | v1.1 | Content-hash-based duplicate detection |
-| **Scheduled Cleaning** | v1.1 | Run scans on a schedule (weekly/monthly) with notification |
-| **Auto-Update (Sparkle)** | v1.1 | In-app update checking and installation |
+| **Duplicate File Finder** | v1.2 | Content-hash-based duplicate detection |
+| **Scheduled Cleaning** | v1.2 | Run scans on a schedule (weekly/monthly) with notification |
+| **Auto-Update (Sparkle)** | v1.2 | In-app update checking and installation |
 | **Disk Usage Visualization** | v1.2 | Treemap or sunburst chart of disk usage |
 | **CLI Interface** | v1.2 | `broom scan`, `broom clean` for terminal users |
 | **Localization** | v1.2 | Multi-language support |

@@ -20,7 +20,7 @@ class UninstallerViewModel {
     enum State: Equatable {
         case loading
         case ready
-        case uninstalling(progress: Double, currentItem: String)
+        case uninstalling(progress: Double, currentItem: String, phase: UninstallPhase?)
         case done(freedBytes: Int64, itemsCleaned: Int, itemsFailed: Int)
 
         static func == (lhs: State, rhs: State) -> Bool {
@@ -72,7 +72,7 @@ class UninstallerViewModel {
     }
 
     var filteredApps: [InstalledApp] {
-        var result = apps.filter { !$0.isSystemApp }
+        var result = apps.filter { !$0.isSystemApp && !$0.isAppleApp }
 
         if !searchText.isEmpty {
             let query = searchText.lowercased()
@@ -114,16 +114,16 @@ class UninstallerViewModel {
     }
 
     func selectApp(_ app: InstalledApp) {
+        selectedApp = app
+        guard !app.associatedFilesLoaded else { return }
         Task {
+            let files = await appInventory.findAssociatedFiles(
+                for: app.bundleIdentifier,
+                appName: app.name
+            )
             var updatedApp = app
-            if !app.associatedFilesLoaded {
-                let files = await appInventory.findAssociatedFiles(
-                    for: app.bundleIdentifier,
-                    appName: app.name
-                )
-                updatedApp.associatedFiles = files
-                updatedApp.associatedFilesLoaded = true
-            }
+            updatedApp.associatedFiles = files
+            updatedApp.associatedFilesLoaded = true
             selectedApp = updatedApp
 
             if let idx = apps.firstIndex(where: { $0.id == app.id }) {
@@ -208,18 +208,25 @@ class UninstallerViewModel {
         showUninstallConfirmation = false
 
         Task {
-            state = .uninstalling(progress: 0, currentItem: "")
+            state = .uninstalling(progress: 0, currentItem: "", phase: nil)
+            var currentPhase: UninstallPhase?
 
             for await progress in appUninstaller.executeUninstall(
                 plan: plan,
                 moveToTrash: moveToTrashForUninstall
             ) {
                 switch progress {
+                case .phase(let phase):
+                    currentPhase = phase
+                    state = .uninstalling(
+                        progress: 0,
+                        currentItem: Self.phaseDescription(phase),
+                        phase: phase
+                    )
                 case .progress(let current, let total, let path):
                     let pct = total > 0 ? Double(current) / Double(total) : 0
-                    state = .uninstalling(progress: pct, currentItem: path)
+                    state = .uninstalling(progress: pct, currentItem: path, phase: currentPhase)
                 case .complete(let report):
-                    // Remove from list
                     apps.removeAll { $0.id == plan.app.id }
                     selectedApp = nil
                     uninstallPlan = nil
@@ -229,11 +236,20 @@ class UninstallerViewModel {
                         itemsFailed: report.itemsFailed
                     )
 
-                    // Return to ready after a delay
                     try? await Task.sleep(for: .seconds(3))
                     state = .ready
                 }
             }
+        }
+    }
+
+    static func phaseDescription(_ phase: UninstallPhase) -> String {
+        switch phase {
+        case .unloadingLaunchItems: return "Unloading launch agents..."
+        case .removingLoginItems: return "Removing login items..."
+        case .deletingFiles: return "Removing files..."
+        case .cleaningMetadata: return "Cleaning up metadata..."
+        case .refreshingDatabase: return "Refreshing system database..."
         }
     }
 

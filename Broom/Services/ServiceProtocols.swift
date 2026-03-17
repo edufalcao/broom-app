@@ -17,6 +17,7 @@ protocol AppInventoryServing {
     func loadApp(at url: URL) async -> InstalledApp?
     func installedBundleIdentifiers() async -> Set<String>
     func findAssociatedFiles(for bundleID: String, appName: String) async -> [CleanableItem]
+    func buildSnapshot() async -> InstalledAppSnapshot
 }
 
 protocol AppUninstalling {

@@ -188,7 +188,8 @@ class ScanViewModel {
         for i in result.categories.indices {
             result.categories[i].isSelected = true
             for j in result.categories[i].items.indices {
-                result.categories[i].items[j].isSelected = true
+                let isLowConfidence = result.categories[i].items[j].confidence == .low
+                result.categories[i].items[j].isSelected = !isLowConfidence
             }
         }
         scanResult = result
@@ -264,6 +265,7 @@ class ScanViewModel {
                 if Task.isCancelled { break }
 
                 switch progress {
+                case .phase: continue
                 case .progress(let current, let total, let path):
                     let pct = total > 0 ? Double(current) / Double(total) : 0
                     self.state = .cleaning(progress: pct, currentItem: path, cleanedCount: current, totalCount: total)

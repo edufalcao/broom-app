@@ -9,6 +9,7 @@ actor FileCleaner: CleanServing {
                 var freedBytes: Int64 = 0
                 var cleaned = 0
                 var failed = 0
+                var blocked = 0
                 var errors: [CleanError] = []
                 let total = items.count
 
@@ -21,20 +22,23 @@ actor FileCleaner: CleanServing {
                         currentPath: item.name
                     ))
 
-                    let result: Result<Void, Error>
+                    let result: DeleteResult
                     if moveToTrash {
-                        result = SafeDelete.moveToTrash(item.path)
+                        result = SafeDelete.moveToTrash(item.path, context: .genericClean, expectedSize: item.size)
                     } else {
-                        result = SafeDelete.deletePermanently(item.path)
+                        result = SafeDelete.deletePermanently(item.path, context: .genericClean, expectedSize: item.size)
                     }
 
                     switch result {
-                    case .success:
-                        freedBytes += item.size
+                    case .success(_, let bytes):
+                        freedBytes += bytes
                         cleaned += 1
-                    case .failure(let error):
+                    case .blocked(let path, let reason):
+                        blocked += 1
+                        errors.append(CleanError(path: path, reason: "Blocked: \(reason.rawValue)"))
+                    case .failed(let path, let error):
                         failed += 1
-                        errors.append(CleanError(path: item.path, reason: error.localizedDescription))
+                        errors.append(CleanError(path: path, reason: error))
                     }
                 }
 
@@ -42,6 +46,7 @@ actor FileCleaner: CleanServing {
                     freedBytes: freedBytes,
                     itemsCleaned: cleaned,
                     itemsFailed: failed,
+                    itemsBlocked: blocked,
                     errors: errors,
                     duration: Date().timeIntervalSince(startTime)
                 )
@@ -54,5 +59,6 @@ actor FileCleaner: CleanServing {
 
 enum CleanProgress {
     case progress(current: Int, total: Int, currentPath: String)
+    case phase(UninstallPhase)
     case complete(CleanReport)
 }

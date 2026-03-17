@@ -7,12 +7,14 @@ struct AppPreferences: Equatable, Sendable {
     static let defaultScanDSStores = true
     static let defaultShowNotifications = true
     static let defaultTempFileAgeHours = 168
+    static let defaultOrphanStaleAgeDays = 30
 
     let moveToTrash: Bool
     let skipRunningApps: Bool
     let showDeveloperCaches: Bool
     let scanDSStores: Bool
     let minTempFileAgeHours: Int
+    let orphanStaleAgeDays: Int
     let safeListEntries: Set<String>
 
     init(
@@ -42,6 +44,8 @@ struct AppPreferences: Equatable, Sendable {
         )
         minTempFileAgeHours =
             userDefaults.object(forKey: "minTempFileAgeHours") as? Int ?? Self.defaultTempFileAgeHours
+        orphanStaleAgeDays =
+            userDefaults.object(forKey: "orphanStaleAgeDays") as? Int ?? Self.defaultOrphanStaleAgeDays
         safeListEntries = ExclusionList.loadUserEntries(
             from: safeListURL,
             fileManager: fileManager

@@ -3,13 +3,16 @@ import AppKit
 
 struct AppInventoryLocations {
     let applicationDirectories: [URL]
+    let extendedAppDiscoveryRoots: [URL]
     let librarySearchDirectories: [(String, URL)]
     let preferencesDirectory: URL
     let launchAgentDirectories: [(String, URL)]
     let supplementalApplicationURLsProvider: @Sendable () async -> [URL]
+    let runningBundleIDsProvider: @Sendable () -> Set<String>
 
     static let live = AppInventoryLocations(
         applicationDirectories: Constants.applicationDirectories,
+        extendedAppDiscoveryRoots: Constants.extendedAppDiscoveryRoots,
         librarySearchDirectories: [
             ("Application Support", Constants.library.appendingPathComponent("Application Support")),
             ("Caches", Constants.userCaches),
@@ -28,6 +31,12 @@ struct AppInventoryLocations {
         ],
         supplementalApplicationURLsProvider: {
             await AppInventory.querySpotlightAppURLs()
+        },
+        runningBundleIDsProvider: {
+            Set(
+                NSWorkspace.shared.runningApplications
+                    .compactMap { $0.bundleIdentifier?.lowercased() }
+            )
         }
     )
 }
@@ -63,17 +72,7 @@ actor AppInventory: AppInventoryServing {
             }
         }
 
-        var enrichedApps: [InstalledApp] = []
-        for var app in apps {
-            app.associatedFiles = await findAssociatedFiles(
-                for: app.bundleIdentifier,
-                appName: app.name
-            )
-            app.associatedFilesLoaded = true
-            enrichedApps.append(app)
-        }
-
-        return enrichedApps.sorted {
+        return apps.sorted {
             $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
     }
@@ -181,6 +180,107 @@ actor AppInventory: AppInventoryServing {
         return lastUsed as? Date
     }
 
+    private func spotlightSize(at url: URL) -> Int64 {
+        guard let mdItem = MDItemCreateWithURL(nil, url as CFURL),
+              let size = MDItemCopyAttribute(mdItem, kMDItemFSSize) as? NSNumber
+        else { return 0 }
+        return size.int64Value
+    }
+
+    // MARK: - Snapshot
+
+    func buildSnapshot() async -> InstalledAppSnapshot {
+        var bundleIDs = Set<String>()
+        var appURLs = Set<URL>()
+
+        for dir in locations.applicationDirectories {
+            for app in enumerateApps(in: dir) {
+                bundleIDs.insert(app.bundleIdentifier.lowercased())
+                appURLs.insert(app.bundlePath.standardizedFileURL)
+            }
+        }
+
+        for root in locations.extendedAppDiscoveryRoots {
+            for app in enumerateAppsIncludingCaskroom(in: root) {
+                bundleIDs.insert(app.bundleIdentifier.lowercased())
+                appURLs.insert(app.bundlePath.standardizedFileURL)
+            }
+        }
+
+        for url in await locations.supplementalApplicationURLsProvider() {
+            if let app = parseApp(at: url) {
+                bundleIDs.insert(app.bundleIdentifier.lowercased())
+                appURLs.insert(app.bundlePath.standardizedFileURL)
+            }
+        }
+
+        let runningIDs = locations.runningBundleIDsProvider()
+
+        var launchLabels = Set<String>()
+        for (_, dir) in locations.launchAgentDirectories {
+            launchLabels.formUnion(extractLaunchItemLabels(in: dir))
+        }
+
+        return InstalledAppSnapshot(
+            installedBundleIDs: bundleIDs,
+            installedAppURLs: appURLs,
+            runningBundleIDs: runningIDs,
+            launchItemLabels: launchLabels
+        )
+    }
+
+    private func enumerateAppsIncludingCaskroom(in directory: URL) -> [InstalledApp] {
+        guard fileManager.fileExists(atPath: directory.path) else { return [] }
+
+        let isCaskroom = directory.path.contains("Caskroom")
+        if isCaskroom {
+            return enumerateCaskroomApps(in: directory)
+        }
+
+        return enumerateApps(in: directory)
+    }
+
+    private func enumerateCaskroomApps(in caskroomDir: URL) -> [InstalledApp] {
+        guard let casks = try? fileManager.contentsOfDirectory(
+            at: caskroomDir,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+
+        var apps: [InstalledApp] = []
+        for cask in casks {
+            guard let versions = try? fileManager.contentsOfDirectory(
+                at: cask,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            ) else { continue }
+            for version in versions {
+                apps.append(contentsOf: enumerateApps(in: version))
+            }
+        }
+        return apps
+    }
+
+    private func extractLaunchItemLabels(in directory: URL) -> Set<String> {
+        guard let contents = try? fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+
+        var labels = Set<String>()
+        for entry in contents where entry.pathExtension == "plist" {
+            guard let data = try? Data(contentsOf: entry),
+                  let plist = try? PropertyListSerialization.propertyList(
+                      from: data, format: nil
+                  ) as? [String: Any],
+                  let label = plist["Label"] as? String
+            else { continue }
+            labels.insert(label)
+        }
+        return labels
+    }
+
     // MARK: - Helpers
 
     private func enumerateApps(in directory: URL) -> [InstalledApp] {
@@ -227,7 +327,7 @@ actor AppInventory: AppInventoryServing {
         let isAppleApp = bundleID.lowercased().hasPrefix("com.apple.")
 
         let icon = NSWorkspace.shared.icon(forFile: url.path)
-        let bundleSize = directorySize(at: url)
+        let bundleSize = spotlightSize(at: url)
         let lastUsed = appLastUsedDate(at: url)
 
         return InstalledApp(

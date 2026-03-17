@@ -51,35 +51,26 @@ enum RunningAppDetector {
     static func matches(item: CleanableItem, runningApplication: RunningApplicationInfo) -> Bool {
         let path = item.path.path.lowercased()
         let name = item.name.lowercased()
+        let appName = runningApplication.localizedName
 
-        for token in candidateTokens(for: runningApplication) where token.count >= 3 {
-            if name.contains(token) || path.contains(token) {
+        if path.contains(runningApplication.bundleIdentifier) {
+            return true
+        }
+
+        let bundleParts = runningApplication.bundleIdentifier.split(separator: ".")
+        if let lastPart = bundleParts.last, lastPart.count >= 3 {
+            let lowerPart = String(lastPart).lowercased()
+            let pathComponents = item.path.pathComponents.map { $0.lowercased() }
+            if pathComponents.contains(lowerPart) {
                 return true
             }
         }
 
+        if !appName.isEmpty, appName.count >= 3,
+           name.contains(appName) || appName.contains(name) {
+            return true
+        }
+
         return false
-    }
-
-    private static func candidateTokens(for app: RunningApplicationInfo) -> Set<String> {
-        var tokens: Set<String> = [app.bundleIdentifier, app.localizedName]
-        let bundleParts = app.bundleIdentifier.split(separator: ".").map(String.init)
-
-        if let last = bundleParts.last {
-            tokens.insert(last.lowercased())
-        }
-
-        for part in bundleParts where part.count >= 3 {
-            tokens.insert(part.lowercased())
-        }
-
-        let compactName = app.localizedName
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: "-", with: "")
-        if compactName.count >= 3 {
-            tokens.insert(compactName)
-        }
-
-        return tokens.filter { !$0.isEmpty }
     }
 }

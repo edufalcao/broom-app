@@ -21,6 +21,35 @@ enum TestSupport {
         try contents.data(using: .utf8)?.write(to: url)
     }
 
+    /// Writes a file with enough content to exceed the orphan detector's minimum size threshold (4KB).
+    static func writeOrphanFile(
+        at url: URL,
+        size: Int = 5000,
+        modificationDate: Date? = nil
+    ) throws {
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let data = Data(repeating: 0x41, count: size)
+        try data.write(to: url)
+
+        if let modDate = modificationDate {
+            try FileManager.default.setAttributes(
+                [.modificationDate: modDate],
+                ofItemAtPath: url.path
+            )
+        }
+    }
+
+    /// Sets the modification date for a file or directory.
+    static func setModificationDate(_ date: Date, at url: URL) throws {
+        try FileManager.default.setAttributes(
+            [.modificationDate: date],
+            ofItemAtPath: url.path
+        )
+    }
+
     static func makeAppBundle(
         at root: URL,
         name: String,
@@ -140,17 +169,25 @@ final class MockAppInventory: AppInventoryServing {
     var bundleIdentifiers: Set<String>
     var associatedFiles: [String: [CleanableItem]]
     var droppedApps: [URL: InstalledApp]
+    var snapshot: InstalledAppSnapshot
 
     init(
         apps: [InstalledApp] = [],
         bundleIdentifiers: Set<String> = [],
         associatedFiles: [String: [CleanableItem]] = [:],
-        droppedApps: [URL: InstalledApp] = [:]
+        droppedApps: [URL: InstalledApp] = [:],
+        snapshot: InstalledAppSnapshot = InstalledAppSnapshot(
+            installedBundleIDs: [],
+            installedAppURLs: [],
+            runningBundleIDs: [],
+            launchItemLabels: []
+        )
     ) {
         self.apps = apps
         self.bundleIdentifiers = bundleIdentifiers
         self.associatedFiles = associatedFiles
         self.droppedApps = droppedApps
+        self.snapshot = snapshot
     }
 
     func loadAllApps() async -> [InstalledApp] {
@@ -167,6 +204,10 @@ final class MockAppInventory: AppInventoryServing {
 
     func findAssociatedFiles(for bundleID: String, appName: String) async -> [CleanableItem] {
         associatedFiles[bundleID] ?? []
+    }
+
+    func buildSnapshot() async -> InstalledAppSnapshot {
+        snapshot
     }
 }
 

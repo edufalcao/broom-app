@@ -126,6 +126,13 @@ enum Constants {
         home.appendingPathComponent("Applications"),
     ]
 
+    static let extendedAppDiscoveryRoots: [URL] = [
+        URL(fileURLWithPath: "/System/Applications"),
+        URL(fileURLWithPath: "/opt/homebrew/Caskroom"),
+        URL(fileURLWithPath: "/usr/local/Caskroom"),
+        library.appendingPathComponent("Application Support/Setapp/Applications"),
+    ]
+
     static let systemApplicationsDirectory = URL(fileURLWithPath: "/System/Applications")
     static let userLaunchAgents = library.appendingPathComponent("LaunchAgents")
     static let systemLaunchAgents = URL(fileURLWithPath: "/Library/LaunchAgents")

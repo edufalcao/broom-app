@@ -35,6 +35,7 @@ struct AppInventoryTests {
         let inventory = AppInventory(
             locations: AppInventoryLocations(
                 applicationDirectories: [appsDirectory],
+                extendedAppDiscoveryRoots: [],
                 librarySearchDirectories: [
                     ("Application Support", appSupport),
                 ],
@@ -42,7 +43,8 @@ struct AppInventoryTests {
                 launchAgentDirectories: [
                     ("Launch Agents", launchAgents),
                 ],
-                supplementalApplicationURLsProvider: { [] }
+                supplementalApplicationURLsProvider: { [] },
+                runningBundleIDsProvider: { [] }
             )
         )
 
@@ -65,15 +67,111 @@ struct AppInventoryTests {
         let inventory = AppInventory(
             locations: AppInventoryLocations(
                 applicationDirectories: [appsDirectory],
+                extendedAppDiscoveryRoots: [],
                 librarySearchDirectories: [],
                 preferencesDirectory: root.appendingPathComponent("Preferences"),
                 launchAgentDirectories: [],
-                supplementalApplicationURLsProvider: { [] }
+                supplementalApplicationURLsProvider: { [] },
+                runningBundleIDsProvider: { [] }
             )
         )
 
         let identifiers = await inventory.installedBundleIdentifiers()
         #expect(identifiers.contains("com.example.sample"))
+    }
+
+    @Test func snapshotDeduplicatesAcrossRoots() async throws {
+        let root = try TestSupport.makeTempDirectory()
+        let appsDir = root.appendingPathComponent("Applications")
+        let extendedDir = root.appendingPathComponent("Extended")
+        try FileManager.default.createDirectory(at: appsDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: extendedDir, withIntermediateDirectories: true)
+
+        _ = try TestSupport.makeAppBundle(
+            at: appsDir, name: "Dupe", bundleIdentifier: "com.example.dupe"
+        )
+        _ = try TestSupport.makeAppBundle(
+            at: extendedDir, name: "Dupe", bundleIdentifier: "com.example.dupe"
+        )
+
+        let inventory = AppInventory(
+            locations: AppInventoryLocations(
+                applicationDirectories: [appsDir],
+                extendedAppDiscoveryRoots: [extendedDir],
+                librarySearchDirectories: [],
+                preferencesDirectory: root.appendingPathComponent("Preferences"),
+                launchAgentDirectories: [],
+                supplementalApplicationURLsProvider: { [] },
+                runningBundleIDsProvider: { [] }
+            )
+        )
+
+        let snapshot = await inventory.buildSnapshot()
+        #expect(snapshot.installedBundleIDs.count == 1)
+        #expect(snapshot.installedBundleIDs.contains("com.example.dupe"))
+    }
+
+    @Test func snapshotIncludesRunningAndLaunchLabels() async throws {
+        let root = try TestSupport.makeTempDirectory()
+        let appsDir = root.appendingPathComponent("Applications")
+        let launchDir = root.appendingPathComponent("LaunchAgents")
+        try FileManager.default.createDirectory(at: appsDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: launchDir, withIntermediateDirectories: true)
+
+        _ = try TestSupport.makeAppBundle(
+            at: appsDir, name: "Alpha", bundleIdentifier: "com.example.alpha"
+        )
+
+        let plist: [String: Any] = ["Label": "com.example.alpha.agent"]
+        let plistData = try PropertyListSerialization.data(
+            fromPropertyList: plist, format: .xml, options: 0
+        )
+        try plistData.write(to: launchDir.appendingPathComponent("com.example.alpha.agent.plist"))
+
+        let inventory = AppInventory(
+            locations: AppInventoryLocations(
+                applicationDirectories: [appsDir],
+                extendedAppDiscoveryRoots: [],
+                librarySearchDirectories: [],
+                preferencesDirectory: root.appendingPathComponent("Preferences"),
+                launchAgentDirectories: [("Launch Agents", launchDir)],
+                supplementalApplicationURLsProvider: { [] },
+                runningBundleIDsProvider: { ["com.example.running"] }
+            )
+        )
+
+        let snapshot = await inventory.buildSnapshot()
+        #expect(snapshot.installedBundleIDs.contains("com.example.alpha"))
+        #expect(snapshot.runningBundleIDs.contains("com.example.running"))
+        #expect(snapshot.launchItemLabels.contains("com.example.alpha.agent"))
+    }
+
+    @Test func snapshotIncludesSpotlightApps() async throws {
+        let root = try TestSupport.makeTempDirectory()
+        let appsDir = root.appendingPathComponent("Applications")
+        let externalDir = root.appendingPathComponent("External")
+        try FileManager.default.createDirectory(at: appsDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: externalDir, withIntermediateDirectories: true)
+
+        let spotlightApp = try TestSupport.makeAppBundle(
+            at: externalDir, name: "Spotlight", bundleIdentifier: "com.example.spotlight"
+        )
+
+        let inventory = AppInventory(
+            locations: AppInventoryLocations(
+                applicationDirectories: [appsDir],
+                extendedAppDiscoveryRoots: [],
+                librarySearchDirectories: [],
+                preferencesDirectory: root.appendingPathComponent("Preferences"),
+                launchAgentDirectories: [],
+                supplementalApplicationURLsProvider: { [spotlightApp] },
+                runningBundleIDsProvider: { [] }
+            )
+        )
+
+        let snapshot = await inventory.buildSnapshot()
+        #expect(snapshot.installedBundleIDs.contains("com.example.spotlight"))
+        #expect(snapshot.installedAppURLs.contains(spotlightApp.standardizedFileURL))
     }
 
     @Test func includesSpotlightSupplementedAppsOutsideStandardDirectories() async throws {
@@ -97,10 +195,12 @@ struct AppInventoryTests {
         let inventory = AppInventory(
             locations: AppInventoryLocations(
                 applicationDirectories: [appsDirectory],
+                extendedAppDiscoveryRoots: [],
                 librarySearchDirectories: [],
                 preferencesDirectory: root.appendingPathComponent("Preferences"),
                 launchAgentDirectories: [],
-                supplementalApplicationURLsProvider: { [externalApp] }
+                supplementalApplicationURLsProvider: { [externalApp] },
+                runningBundleIDsProvider: { [] }
             )
         )
 
