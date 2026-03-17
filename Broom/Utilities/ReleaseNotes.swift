@@ -8,10 +8,28 @@ struct ReleaseNoteSection: Identifiable {
 }
 
 enum ReleaseNotes {
-    static let currentVersion = "1.3.0"
+    static let currentVersion = "1.3.1"
     static let currentReleaseDate = "2026-03-17"
 
     static let versions: [(version: String, date: String, sections: [ReleaseNoteSection])] = [
+        (
+            version: "1.3.1",
+            date: "2026-03-17",
+            sections: [
+                ReleaseNoteSection(
+                    title: "Fix",
+                    items: [
+                        "System apps under /System/Library/Frameworks/ (e.g., Wish.app) are now correctly classified as system apps and excluded from the uninstaller list.",
+                    ]
+                ),
+                ReleaseNoteSection(
+                    title: "Quality",
+                    items: [
+                        "178 tests across 27 suites.",
+                    ]
+                ),
+            ]
+        ),
         (
             version: "1.3.0",
             date: "2026-03-17",

@@ -49,6 +49,16 @@ actor AppInventory: AppInventoryServing {
         self.locations = locations
     }
 
+    static func classifyApp(at url: URL, bundleIdentifier: String) -> (isSystemApp: Bool, isAppleApp: Bool) {
+        let standardizedPath = url.standardizedFileURL.path
+        let loweredBundleID = bundleIdentifier.lowercased()
+
+        let isSystemApp = standardizedPath == "/System" || standardizedPath.hasPrefix("/System/")
+        let isAppleApp = loweredBundleID.hasPrefix("com.apple.")
+
+        return (isSystemApp, isAppleApp)
+    }
+
     // MARK: - Installed Apps
 
     func loadAllApps() async -> [InstalledApp] {
@@ -326,8 +336,7 @@ actor AppInventory: AppInventoryServing {
 
         let version = (plist["CFBundleShortVersionString"] as? String) ?? ""
 
-        let isSystemApp = url.path.hasPrefix("/System/Applications")
-        let isAppleApp = bundleID.lowercased().hasPrefix("com.apple.")
+        let classification = Self.classifyApp(at: url, bundleIdentifier: bundleID)
 
         let icon = NSWorkspace.shared.icon(forFile: url.path)
         let bundleSize = spotlightSize(at: url)
@@ -340,8 +349,8 @@ actor AppInventory: AppInventoryServing {
             bundlePath: url,
             bundleSize: bundleSize,
             icon: icon,
-            isSystemApp: isSystemApp,
-            isAppleApp: isAppleApp,
+            isSystemApp: classification.isSystemApp,
+            isAppleApp: classification.isAppleApp,
             associatedFilesLoaded: false,
             lastUsedDate: lastUsed
         )

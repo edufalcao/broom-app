@@ -4,6 +4,14 @@ All notable changes to Broom will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-03-17
+
+### Fixed
+- System apps under `/System/Library/Frameworks/` (e.g., Wish.app) are now correctly classified as system apps and excluded from the uninstaller list
+
+### Quality
+- 178 tests across 27 suites
+
 ## [1.3.0] - 2026-03-17
 
 ### Added

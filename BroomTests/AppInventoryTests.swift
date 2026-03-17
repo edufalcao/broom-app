@@ -179,6 +179,20 @@ struct AppInventoryTests {
         #expect(snapshot.installedBundleIDs.contains("com.example.host.helper"))
     }
 
+    @Test func classifiesFrameworkBundledSystemAppsAsSystemApps() {
+        let wishURL = URL(
+            fileURLWithPath: "/System/Library/Frameworks/Tk.framework/Versions/8.5/Resources/Wish.app"
+        )
+
+        let classification = AppInventory.classifyApp(
+            at: wishURL,
+            bundleIdentifier: "com.tcltk.wish"
+        )
+
+        #expect(classification.isSystemApp)
+        #expect(!classification.isAppleApp)
+    }
+
     @Test func snapshotIncludesSpotlightApps() async throws {
         let root = try TestSupport.makeTempDirectory()
         let appsDir = root.appendingPathComponent("Applications")

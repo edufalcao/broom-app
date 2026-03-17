@@ -78,6 +78,34 @@ struct UninstallerViewModelTests {
     }
 
     @MainActor
+    @Test func filteredAppsExcludeFrameworkBundledSystemApps() async {
+        let wish = InstalledApp(
+            name: "Wish",
+            bundleIdentifier: "com.tcltk.wish",
+            bundlePath: URL(
+                fileURLWithPath: "/System/Library/Frameworks/Tk.framework/Versions/8.5/Resources/Wish.app"
+            ),
+            isSystemApp: true
+        )
+        let regular = InstalledApp(
+            name: "Regular",
+            bundleIdentifier: "com.example.regular",
+            bundlePath: URL(fileURLWithPath: "/Applications/Regular.app")
+        )
+        let inventory = MockAppInventory(apps: [wish, regular])
+        let viewModel = UninstallerViewModel(
+            appInventory: inventory,
+            appUninstaller: MockAppUninstaller()
+        )
+
+        viewModel.scanApps()
+        await TestSupport.awaitCondition { viewModel.state == .ready }
+
+        #expect(viewModel.filteredApps.count == 1)
+        #expect(viewModel.filteredApps.first?.bundleIdentifier == "com.example.regular")
+    }
+
+    @MainActor
     @Test func togglesSelectedFilesBeforePreparingUninstall() async {
         let file = CleanableItem(path: URL(fileURLWithPath: "/tmp/support"), size: 100)
         var app = InstalledApp(
