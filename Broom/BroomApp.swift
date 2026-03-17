@@ -2,7 +2,7 @@ import SwiftUI
 
 enum SidebarSection: String, CaseIterable, Hashable {
     case cleaner = "Clean"
-    case uninstaller = "Apps"
+    case uninstaller = "Uninstall"
     case largeFiles = "Large Files"
 
     var icon: String {

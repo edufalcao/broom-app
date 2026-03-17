@@ -218,10 +218,11 @@ final class MockAppUninstaller: AppUninstalling {
     var report: CleanReport
 
     init(
-        preparedPlan: UninstallPlan,
+        preparedPlan: UninstallPlan? = nil,
         report: CleanReport = CleanReport(freedBytes: 0, itemsCleaned: 0, itemsFailed: 0, errors: [], duration: 0)
     ) {
-        self.preparedPlan = preparedPlan
+        let dummyApp = InstalledApp(name: "Dummy", bundleIdentifier: "com.dummy", bundlePath: URL(fileURLWithPath: "/tmp/Dummy.app"))
+        self.preparedPlan = preparedPlan ?? UninstallPlan(app: dummyApp, filesToRemove: [], totalSize: 0, isRunning: false, isProtected: false)
         self.report = report
     }
 

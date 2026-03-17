@@ -8,10 +8,36 @@ struct ReleaseNoteSection: Identifiable {
 }
 
 enum ReleaseNotes {
-    static let currentVersion = "1.1.0"
+    static let currentVersion = "1.2.0"
     static let currentReleaseDate = "2026-03-17"
 
     static let versions: [(version: String, date: String, sections: [ReleaseNoteSection])] = [
+        (
+            version: "1.2.0",
+            date: "2026-03-17",
+            sections: [
+                ReleaseNoteSection(
+                    title: "Uninstall",
+                    items: [
+                        "Sidebar renamed from \"Apps\" to \"Uninstall\" for clarity.",
+                        "Uninstall tab starts with an idle screen and a \"Scan Apps\" button instead of auto-scanning.",
+                    ]
+                ),
+                ReleaseNoteSection(
+                    title: "Leftover Detection",
+                    items: [
+                        "All com.apple.* entries are broadly suppressed from orphan detection — system data is never listed as leftovers.",
+                        "Group Container entries with team ID prefixes (e.g., UBF8T346G9.com.microsoft.teams) are now correctly matched against installed apps.",
+                    ]
+                ),
+                ReleaseNoteSection(
+                    title: "Quality",
+                    items: [
+                        "168 tests across 27 suites.",
+                    ]
+                ),
+            ]
+        ),
         (
             version: "1.1.0",
             date: "2026-03-17",

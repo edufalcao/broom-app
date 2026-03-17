@@ -9,6 +9,8 @@ enum BundleIDMatcher {
 
         for id in installed {
             if normalized.hasPrefix(id + ".") || id.hasPrefix(normalized + ".") { return true }
+            // Group Containers use {TeamID}.{BundleID} format
+            if normalized.hasSuffix("." + id) { return true }
         }
 
         return false

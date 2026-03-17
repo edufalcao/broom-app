@@ -66,6 +66,22 @@ struct BundleIDMatcherTests {
         #expect(!BundleIDMatcher.strictMatch(candidate: "com.spotify.client", against: []))
     }
 
+    @Test func strictMatchGroupContainerSuffix() {
+        // Group Containers use {TeamID}.{BundleID} format
+        let ids: Set<String> = ["com.microsoft.teams"]
+        #expect(BundleIDMatcher.strictMatch(candidate: "UBF8T346G9.com.microsoft.teams", against: ids))
+    }
+
+    @Test func strictMatchGroupContainerSuffixCaseInsensitive() {
+        let ids: Set<String> = ["com.google.chrome"]
+        #expect(BundleIDMatcher.strictMatch(candidate: "EQHXZ8M8AV.com.google.Chrome", against: ids))
+    }
+
+    @Test func strictMatchGroupContainerDoesNotFalsePositive() {
+        let ids: Set<String> = ["com.example.app"]
+        #expect(!BundleIDMatcher.strictMatch(candidate: "UBF8T346G9.com.other.app", against: ids))
+    }
+
     // MARK: - broadMatch
 
     @Test func broadMatchExactID() {

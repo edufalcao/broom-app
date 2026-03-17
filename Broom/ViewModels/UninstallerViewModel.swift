@@ -18,6 +18,7 @@ struct RunningAppController {
 @Observable
 class UninstallerViewModel {
     enum State: Equatable {
+        case idle
         case loading
         case ready
         case uninstalling(progress: Double, currentItem: String, phase: UninstallPhase?)
@@ -25,6 +26,7 @@ class UninstallerViewModel {
 
         static func == (lhs: State, rhs: State) -> Bool {
             switch (lhs, rhs) {
+            case (.idle, .idle): return true
             case (.loading, .loading): return true
             case (.ready, .ready): return true
             case (.uninstalling, .uninstalling): return true
@@ -40,7 +42,7 @@ class UninstallerViewModel {
         case lastUsed = "Last Used"
     }
 
-    var state: State = .loading
+    var state: State = .idle
     var apps: [InstalledApp] = []
     var selectedApp: InstalledApp?
     var searchText = ""
@@ -94,8 +96,9 @@ class UninstallerViewModel {
         return result
     }
 
-    func loadApps() {
-        guard state == .loading else { return }
+    func scanApps() {
+        guard state == .idle || state == .loading else { return }
+        state = .loading
         loadTask = Task {
             let loaded = await appInventory.loadAllApps()
             apps = loaded
@@ -255,6 +258,7 @@ class UninstallerViewModel {
 
     func handleAppDrop(url: URL) {
         guard url.pathExtension == "app" else { return }
+        if state == .idle { state = .ready }
 
         Task {
             let droppedApp = if let existing = apps.first(where: { $0.bundlePath == url }) {

@@ -18,12 +18,35 @@ struct UninstallerView: View {
     var body: some View {
         Group {
             switch viewModel.state {
+            case .idle:
+                VStack(spacing: 24) {
+                    Spacer()
+                    Image(systemName: "shippingbox")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.secondary)
+                    Text("Browse and uninstall apps")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                    Text("Scan your installed apps to view their associated files and cleanly remove them.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 300)
+                    Button(action: { viewModel.scanApps() }) {
+                        Label("Scan Apps", systemImage: "magnifyingglass")
+                            .frame(minWidth: 160)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
             case .loading:
                 VStack {
                     ProgressView("Loading apps...")
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .onAppear { viewModel.loadApps() }
 
             case .ready:
                 mainContent

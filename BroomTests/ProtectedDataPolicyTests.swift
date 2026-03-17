@@ -41,9 +41,22 @@ struct ProtectedDataPolicyTests {
         #expect(ProtectedDataPolicy.isProtected(bundleID: "com.hegenberg.bettertouchtool"))
     }
 
-    @Test func icloudBundleIDsAreProtected() {
+    @Test func appleSystemBundleIDsAreProtected() {
         #expect(ProtectedDataPolicy.isProtected(bundleID: "com.apple.icloud.photos"))
         #expect(ProtectedDataPolicy.isProtected(bundleID: "com.apple.mobilesync"))
+        #expect(ProtectedDataPolicy.isProtected(bundleID: "com.apple.LaunchServices"))
+        #expect(ProtectedDataPolicy.isProtected(bundleID: "com.apple.spotlight"))
+        #expect(ProtectedDataPolicy.isProtected(bundleID: "com.apple.finder"))
+        #expect(ProtectedDataPolicy.isProtected(bundleID: "com.apple.preference.general"))
+        #expect(ProtectedDataPolicy.isProtected(bundleID: "com.apple.appstore"))
+    }
+
+    @Test func appleSystemPathsAreProtected() {
+        let launchServicesPath = URL(fileURLWithPath: "/Users/test/Library/Caches/com.apple.LaunchServices")
+        #expect(ProtectedDataPolicy.isProtected(path: launchServicesPath))
+
+        let spotlightPath = URL(fileURLWithPath: "/Users/test/Library/Caches/com.apple.spotlight")
+        #expect(ProtectedDataPolicy.isProtected(path: spotlightPath))
     }
 
     @Test func unprotectedBundleIDsAreNotProtected() {

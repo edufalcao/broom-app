@@ -4,6 +4,17 @@ All notable changes to Broom will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-03-17
+
+### Changed
+- Sidebar label renamed from "Apps" to "Uninstall" for clarity
+- Uninstall tab starts with an idle screen and "Scan Apps" button instead of auto-scanning on tab switch
+- All `com.apple.*` entries are now broadly suppressed from orphan detection — system and framework data is never listed as leftovers
+- Group Container entries with team ID prefixes (e.g., `UBF8T346G9.com.microsoft.teams`) are now correctly matched against installed apps
+
+### Quality
+- 168 tests across 27 suites (up from 162)
+
 ## [1.1.0] - 2026-03-17
 
 ### Added

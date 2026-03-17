@@ -5,7 +5,37 @@ import Testing
 @Suite("UninstallerViewModel")
 struct UninstallerViewModelTests {
     @MainActor
-    @Test func handleAppDropLoadsExternalAppAndShowsPreview() async throws {
+    @Test func startsInIdleState() {
+        let viewModel = UninstallerViewModel(
+            appInventory: MockAppInventory(),
+            appUninstaller: MockAppUninstaller()
+        )
+        #expect(viewModel.state == .idle)
+    }
+
+    @MainActor
+    @Test func scanAppsTransitionsFromIdleToReady() async {
+        let app = InstalledApp(
+            name: "Test",
+            bundleIdentifier: "com.test.app",
+            bundlePath: URL(fileURLWithPath: "/tmp/Test.app")
+        )
+        let inventory = MockAppInventory(apps: [app])
+        let viewModel = UninstallerViewModel(
+            appInventory: inventory,
+            appUninstaller: MockAppUninstaller()
+        )
+
+        #expect(viewModel.state == .idle)
+        viewModel.scanApps()
+        await TestSupport.awaitCondition { viewModel.state == .ready }
+
+        #expect(viewModel.apps.count == 1)
+        #expect(viewModel.apps.first?.name == "Test")
+    }
+
+    @MainActor
+    @Test func appDropFromIdleTransitionsToReady() async throws {
         let appURL = URL(fileURLWithPath: "/tmp/Dropped.app")
         let droppedApp = InstalledApp(
             name: "Dropped",

@@ -49,11 +49,8 @@ enum ProtectedDataPolicy {
         "com.lmstudio.",
         "com.ollama.",
 
-        // iCloud-synced data
-        "com.apple.icloud",
-        "com.apple.mobilesync",
-        "com.apple.cloudd",
-        "com.apple.bird",
+        // Apple / system data (never legitimate leftovers)
+        "com.apple.",
 
         // Automation / scripting tools
         "com.stairways.keyboardmaestro",
@@ -89,10 +86,6 @@ enum ProtectedDataPolicy {
         "expressvpn",
         "wireguard",
         "tailscale",
-
-        // iCloud-synced data
-        "com.apple.icloud",
-        "mobilesync",
 
         // AI model data
         "ollama",
