@@ -42,6 +42,7 @@ struct IdleView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .accessibilityIdentifier("cleaner-scan-button")
 
             Text(lastScanText)
                 .font(.caption)

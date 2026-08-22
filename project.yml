@@ -46,15 +46,34 @@ targets:
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Broom.app/Contents/MacOS/Broom"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
+  BroomUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - BroomUITests
+    dependencies:
+      - target: Broom
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.broom.app.uitests
+        GENERATE_INFOPLIST_FILE: true
+        TEST_TARGET_NAME: Broom
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_ENTITLEMENTS: BroomUITests/BroomUITests.entitlements
+
 schemes:
   Broom:
     build:
       targets:
         Broom: all
         BroomTests: [test]
+        BroomUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
         - BroomTests
+        - BroomUITests

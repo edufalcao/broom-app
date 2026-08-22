@@ -38,6 +38,7 @@ struct MainWindow: View {
                     .tag(section)
                     .accessibilityLabel(section.rawValue)
                     .accessibilityHint("Switch to \(section.rawValue) section")
+                    .accessibilityIdentifier("sidebar-section-\(section.rawValue)")
                 }
             }
             .listStyle(.sidebar)

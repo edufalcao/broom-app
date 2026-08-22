@@ -38,6 +38,7 @@ struct UninstallerView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
+                    .accessibilityIdentifier("uninstaller-scan-button")
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

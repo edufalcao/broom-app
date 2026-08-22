@@ -30,4 +30,5 @@ jobs:
           xcodebuild \
             -scheme Broom \
             -configuration Debug \
+            -enableCodeCoverage YES \
             test
