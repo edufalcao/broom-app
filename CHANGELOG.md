@@ -4,6 +4,24 @@ All notable changes to Broom will be documented in this file.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-08-22
+
+### Added
+- Browser cache depth: per-profile GPUCache, ShaderCache, GrShaderCache, DawnGraphiteCache, DawnWebGPUCache, plus base-level component and extension CRX caches for Chromium browsers; items now carry per-cache labels (e.g. "Chrome — GPUCache")
+- Browser cache breadth: Vivaldi, Opera, Yandex, Orion, Zen, Comet, Helium, QQ Browser, Thunderbird, and Dia
+- Apple system data in System Caches: Saved Application State and Messages sticker/preview caches
+- Extended developer caches: Cargo Registry, Bun, Corepack (XDG and macOS paths), rbenv downloads, RubyGems Specs, Bundler
+- New Simulator Data category: simulator caches, CoreSimulator logs, and per-device temp directories; suppressed while Xcode or Simulator is running
+
+### Changed
+- Cleaner and Uninstaller completion screens now surface how many items were blocked by safety rules (`itemsBlocked` was previously counted but never shown)
+- LaunchServices database refresh is non-blocking: `lsregister` waits in a task group with a 10-second timeout instead of blocking via `DispatchGroup.wait`
+
+### Quality
+- New BroomUITests target with main-window smoke tests; accessibility identifiers added to sidebar sections and scan buttons
+- Code coverage enabled in CI test runs
+- 185 tests across 28 suites
+
 ## [1.3.1] - 2026-03-17
 
 ### Fixed

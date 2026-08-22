@@ -27,6 +27,130 @@ struct FileScannerLocations {
     let dockerData: URL
     let dockerConfig: URL
     let mailAttachments: URL
+    let vivaldiCache: URL
+    let operaCache: URL
+    let yandexCacheBase: URL
+    let orionCache: URL
+    let zenCache: URL
+    let cometCache: URL
+    let heliumCache: URL
+    let qqBrowserCache: URL
+    let thunderbirdCache: URL
+    let diaCacheBase: URL
+    let savedApplicationState: URL
+    let messagesStickerCache: URL
+    let messagesPreviewStickerCache: URL
+    let cargoRegistryCache: URL
+    let bunInstallCache: URL
+    let corepackCacheCandidates: [URL]
+    let rbenvCache: URL
+    let gemSpecsCache: URL
+    let bundlerCache: URL
+    let simulatorCaches: URL
+    let simulatorDevices: URL
+    let simulatorLogs: URL
+
+    init(
+        home: URL,
+        userCaches: URL,
+        downloads: URL,
+        chromeCacheBase: URL,
+        firefoxCache: URL,
+        safariCache: URL,
+        arcCache: URL,
+        braveCacheBase: URL,
+        edgeCacheBase: URL,
+        userLogs: URL,
+        systemLogs: URL,
+        diagnosticReports: URL,
+        userTmpDir: URL,
+        systemTmp: URL,
+        xcodeDerivedData: URL,
+        xcodeArchives: URL,
+        spmCache: URL,
+        cocoapodsCache: URL,
+        homebrewCache: URL,
+        homebrewCellar: URL,
+        npmCache: URL,
+        yarnCache: URL,
+        pipCache: URL,
+        dockerData: URL,
+        dockerConfig: URL,
+        mailAttachments: URL,
+        // Enriched categories default to their live system paths so older
+        // test fixtures stay valid.
+        vivaldiCache: URL = Constants.vivaldiCache,
+        operaCache: URL = Constants.operaCache,
+        yandexCacheBase: URL = Constants.yandexCacheBase,
+        orionCache: URL = Constants.orionCache,
+        zenCache: URL = Constants.zenCache,
+        cometCache: URL = Constants.cometCache,
+        heliumCache: URL = Constants.heliumCache,
+        qqBrowserCache: URL = Constants.qqBrowserCache,
+        thunderbirdCache: URL = Constants.thunderbirdCache,
+        diaCacheBase: URL = Constants.diaCacheBase,
+        savedApplicationState: URL = Constants.savedApplicationState,
+        messagesStickerCache: URL = Constants.messagesStickerCache,
+        messagesPreviewStickerCache: URL = Constants.messagesPreviewStickerCache,
+        cargoRegistryCache: URL = Constants.cargoRegistryCache,
+        bunInstallCache: URL = Constants.bunInstallCache,
+        corepackCacheCandidates: [URL] = Constants.corepackCacheCandidates,
+        rbenvCache: URL = Constants.rbenvCache,
+        gemSpecsCache: URL = Constants.gemSpecsCache,
+        bundlerCache: URL = Constants.bundlerCache,
+        simulatorCaches: URL = Constants.simulatorCaches,
+        simulatorDevices: URL = Constants.simulatorDevices,
+        simulatorLogs: URL = Constants.simulatorLogs
+    ) {
+        self.home = home
+        self.userCaches = userCaches
+        self.downloads = downloads
+        self.chromeCacheBase = chromeCacheBase
+        self.firefoxCache = firefoxCache
+        self.safariCache = safariCache
+        self.arcCache = arcCache
+        self.braveCacheBase = braveCacheBase
+        self.edgeCacheBase = edgeCacheBase
+        self.userLogs = userLogs
+        self.systemLogs = systemLogs
+        self.diagnosticReports = diagnosticReports
+        self.userTmpDir = userTmpDir
+        self.systemTmp = systemTmp
+        self.xcodeDerivedData = xcodeDerivedData
+        self.xcodeArchives = xcodeArchives
+        self.spmCache = spmCache
+        self.cocoapodsCache = cocoapodsCache
+        self.homebrewCache = homebrewCache
+        self.homebrewCellar = homebrewCellar
+        self.npmCache = npmCache
+        self.yarnCache = yarnCache
+        self.pipCache = pipCache
+        self.dockerData = dockerData
+        self.dockerConfig = dockerConfig
+        self.mailAttachments = mailAttachments
+        self.vivaldiCache = vivaldiCache
+        self.operaCache = operaCache
+        self.yandexCacheBase = yandexCacheBase
+        self.orionCache = orionCache
+        self.zenCache = zenCache
+        self.cometCache = cometCache
+        self.heliumCache = heliumCache
+        self.qqBrowserCache = qqBrowserCache
+        self.thunderbirdCache = thunderbirdCache
+        self.diaCacheBase = diaCacheBase
+        self.savedApplicationState = savedApplicationState
+        self.messagesStickerCache = messagesStickerCache
+        self.messagesPreviewStickerCache = messagesPreviewStickerCache
+        self.cargoRegistryCache = cargoRegistryCache
+        self.bunInstallCache = bunInstallCache
+        self.corepackCacheCandidates = corepackCacheCandidates
+        self.rbenvCache = rbenvCache
+        self.gemSpecsCache = gemSpecsCache
+        self.bundlerCache = bundlerCache
+        self.simulatorCaches = simulatorCaches
+        self.simulatorDevices = simulatorDevices
+        self.simulatorLogs = simulatorLogs
+    }
 
     static let live = FileScannerLocations(
         home: Constants.home,
@@ -54,20 +178,45 @@ struct FileScannerLocations {
         pipCache: Constants.pipCache,
         dockerData: Constants.dockerData,
         dockerConfig: Constants.dockerConfig,
-        mailAttachments: Constants.mailAttachments
+        mailAttachments: Constants.mailAttachments,
+        vivaldiCache: Constants.vivaldiCache,
+        operaCache: Constants.operaCache,
+        yandexCacheBase: Constants.yandexCacheBase,
+        orionCache: Constants.orionCache,
+        zenCache: Constants.zenCache,
+        cometCache: Constants.cometCache,
+        heliumCache: Constants.heliumCache,
+        qqBrowserCache: Constants.qqBrowserCache,
+        thunderbirdCache: Constants.thunderbirdCache,
+        diaCacheBase: Constants.diaCacheBase,
+        savedApplicationState: Constants.savedApplicationState,
+        messagesStickerCache: Constants.messagesStickerCache,
+        messagesPreviewStickerCache: Constants.messagesPreviewStickerCache,
+        cargoRegistryCache: Constants.cargoRegistryCache,
+        bunInstallCache: Constants.bunInstallCache,
+        corepackCacheCandidates: Constants.corepackCacheCandidates,
+        rbenvCache: Constants.rbenvCache,
+        gemSpecsCache: Constants.gemSpecsCache,
+        bundlerCache: Constants.bundlerCache,
+        simulatorCaches: Constants.simulatorCaches,
+        simulatorDevices: Constants.simulatorDevices,
+        simulatorLogs: Constants.simulatorLogs
     )
 }
 
 actor FileScanner: ScanServing {
     private let locations: FileScannerLocations
     private let preferencesProvider: @Sendable () -> AppPreferences
+    private let runningBundleIDsProvider: @Sendable () -> Set<String>
 
     init(
         locations: FileScannerLocations = .live,
-        preferencesProvider: @escaping @Sendable () -> AppPreferences = { AppPreferences() }
+        preferencesProvider: @escaping @Sendable () -> AppPreferences = { AppPreferences() },
+        runningBundleIDsProvider: @escaping @Sendable () -> Set<String> = { RunningAppDetector.runningBundleIdentifiers() }
     ) {
         self.locations = locations
         self.preferencesProvider = preferencesProvider
+        self.runningBundleIDsProvider = runningBundleIDsProvider
     }
 
     // MARK: - Public API
@@ -78,6 +227,7 @@ actor FileScanner: ScanServing {
                 let startTime = Date()
                 let preferences = await self.currentPreferences()
                 let executor = await self.makeExecutor()
+                let runningBundleIDs = runningBundleIDsProvider()
                 let phases = scanPhases(for: preferences)
                 let totalSteps = Double(max(phases.count, 1))
                 var completedCount = 0
@@ -95,7 +245,7 @@ actor FileScanner: ScanServing {
                 await withTaskGroup(of: (ScanPhase, CleanCategory?).self) { group in
                     for phase in phases {
                         group.addTask {
-                            (phase, executor.runPhase(phase, preferences: preferences))
+                            (phase, executor.runPhase(phase, preferences: preferences, runningBundleIDs: runningBundleIDs))
                         }
                     }
 
@@ -160,6 +310,7 @@ actor FileScanner: ScanServing {
         if preferences.showDeveloperCaches {
             phases.append(.xcodeData)
             phases.append(.developerCaches)
+            phases.append(.simulatorData)
         }
 
         if preferences.scanDSStores {
@@ -181,7 +332,8 @@ private struct FileScannerExecutor {
 
     func runPhase(
         _ phase: ScanPhase,
-        preferences: AppPreferences
+        preferences: AppPreferences,
+        runningBundleIDs: Set<String> = []
     ) -> CleanCategory? {
         switch phase {
         case .systemCaches:
@@ -198,6 +350,12 @@ private struct FileScannerExecutor {
             return scanXcode(userEntries: preferences.safeListEntries)
         case .developerCaches:
             return scanDeveloperCaches(userEntries: preferences.safeListEntries)
+        case .simulatorData:
+            return scanSimulatorData(
+                userEntries: preferences.safeListEntries,
+                skipWhenToolsRunning: preferences.skipRunningApps,
+                runningBundleIDs: runningBundleIDs
+            )
         case .dsStoreFiles:
             return scanDSStores(userEntries: preferences.safeListEntries)
         case .dockerData:
@@ -210,36 +368,59 @@ private struct FileScannerExecutor {
     }
 
     func scanSystemCaches(userEntries: Set<String>) -> CleanCategory {
-        let items = enumerateDirectories(
+        var items = enumerateDirectories(
             at: locations.userCaches,
             excluding: Constants.protectedCacheIdentifiers,
             userEntries: userEntries
         )
+
+        let explicitTargets: [(String, URL)] = [
+            ("Saved Application State", locations.savedApplicationState),
+            ("Messages Sticker Cache", locations.messagesStickerCache),
+            ("Messages Preview Cache", locations.messagesPreviewStickerCache),
+        ]
+        for (name, path) in explicitTargets {
+            if let item = makeCleanableItem(at: path, displayName: name, userEntries: userEntries) {
+                items.append(item)
+            }
+        }
+
         return CleanCategory(
             name: "System Caches",
             icon: "internaldrive",
             description: "Per-app cache directories that are safe to delete",
-            items: items
+            items: items.sorted { $0.size > $1.size }
         )
     }
 
     func scanBrowserCaches(userEntries: Set<String>) -> CleanCategory {
         var items: [CleanableItem] = []
 
-        let browserPaths: [(String, [URL])] = [
+        let browserPaths: [(String, [LabeledPath])] = [
             ("Chrome", chromiumCachePaths(base: locations.chromeCacheBase)),
-            ("Firefox", [locations.firefoxCache]),
-            ("Safari", [locations.safariCache]),
-            ("Arc", [locations.arcCache]),
+            ("Firefox", [LabeledPath(locations.firefoxCache, label: nil)]),
+            ("Safari", [LabeledPath(locations.safariCache, label: nil)]),
+            ("Arc", [LabeledPath(locations.arcCache, label: nil)]),
             ("Brave", chromiumCachePaths(base: locations.braveCacheBase)),
             ("Edge", chromiumCachePaths(base: locations.edgeCacheBase, fallbackToBase: true)),
+            ("Vivaldi", [LabeledPath(locations.vivaldiCache, label: nil)]),
+            ("Opera", [LabeledPath(locations.operaCache, label: nil)]),
+            ("Yandex", chromiumCachePaths(base: locations.yandexCacheBase, fallbackToBase: true)),
+            ("Orion", [LabeledPath(locations.orionCache, label: nil)]),
+            ("Zen", [LabeledPath(locations.zenCache, label: nil)]),
+            ("Comet", [LabeledPath(locations.cometCache, label: nil)]),
+            ("Helium", [LabeledPath(locations.heliumCache, label: nil)]),
+            ("QQ Browser", [LabeledPath(locations.qqBrowserCache, label: nil)]),
+            ("Thunderbird", [LabeledPath(locations.thunderbirdCache, label: nil)]),
+            ("Dia", chromiumCachePaths(base: locations.diaCacheBase, fallbackToBase: true)),
         ]
 
         for (name, paths) in browserPaths {
             for path in paths {
+                let displayName = path.label.map { "\(name) — \($0)" } ?? name
                 if let item = makeCleanableItem(
-                    at: path,
-                    displayName: name,
+                    at: path.url,
+                    displayName: displayName,
                     userEntries: userEntries
                 ) {
                     items.append(item)
@@ -348,14 +529,22 @@ private struct FileScannerExecutor {
     }
 
     func scanDeveloperCaches(userEntries: Set<String>) -> CleanCategory {
-        let caches: [(String, URL)] = [
+        var caches: [(String, URL)] = [
             ("Swift Package Manager", locations.spmCache),
             ("CocoaPods", locations.cocoapodsCache),
             ("Homebrew", locations.homebrewCache),
             ("npm", locations.npmCache),
             ("Yarn", locations.yarnCache),
             ("pip", locations.pipCache),
+            ("Cargo Registry", locations.cargoRegistryCache),
+            ("Bun", locations.bunInstallCache),
+            ("rbenv Downloads", locations.rbenvCache),
+            ("RubyGems Specs", locations.gemSpecsCache),
+            ("Bundler", locations.bundlerCache),
         ]
+        for candidate in locations.corepackCacheCandidates {
+            caches.append(("Corepack", candidate))
+        }
 
         var items: [CleanableItem] = []
         for (name, path) in caches {
@@ -371,7 +560,63 @@ private struct FileScannerExecutor {
         return CleanCategory(
             name: "Developer Caches",
             icon: "chevron.left.forwardslash.chevron.right",
-            description: "Package manager caches",
+            description: "Package manager and toolchain caches",
+            items: items
+        )
+    }
+
+    func scanSimulatorData(
+        userEntries: Set<String>,
+        skipWhenToolsRunning: Bool,
+        runningBundleIDs: Set<String>
+    ) -> CleanCategory? {
+        let toolBundleIDs: Set<String> = [
+            "com.apple.dt.xcode",
+            "com.apple.iphonesimulator",
+        ]
+        let normalizedRunningIDs = Set(runningBundleIDs.map { $0.lowercased() })
+        if skipWhenToolsRunning,
+           !normalizedRunningIDs.isDisjoint(with: toolBundleIDs) {
+            return nil
+        }
+
+        var items: [CleanableItem] = []
+
+        let fixedTargets: [(String, URL)] = [
+            ("Simulator Caches", locations.simulatorCaches),
+            ("Simulator Logs", locations.simulatorLogs),
+        ]
+        for (name, path) in fixedTargets {
+            if let item = makeCleanableItem(at: path, displayName: name, userEntries: userEntries) {
+                items.append(item)
+            }
+        }
+
+        // Per-device temp directories are regenerable scratch space.
+        if let devices = try? fileManager.contentsOfDirectory(
+            at: locations.simulatorDevices,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) {
+            for device in devices.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                let tmpDir = device
+                    .appendingPathComponent("data")
+                    .appendingPathComponent("tmp")
+                guard let item = makeCleanableItem(
+                    at: tmpDir,
+                    displayName: "Simulator Temp (\(device.lastPathComponent.prefix(8)))",
+                    userEntries: userEntries
+                ) else { continue }
+                items.append(item)
+            }
+        }
+
+        guard !items.isEmpty else { return nil }
+
+        return CleanCategory(
+            name: "Simulator Data",
+            icon: "iphone.gen3",
+            description: "Regenerable simulator caches, logs, and temp files",
             items: items
         )
     }
@@ -636,28 +881,57 @@ private struct FileScannerExecutor {
         )
     }
 
-    private func chromiumCachePaths(base: URL, fallbackToBase: Bool = false) -> [URL] {
+    private func chromiumCachePaths(base: URL, fallbackToBase: Bool = false) -> [LabeledPath] {
+        // Per-profile cache subdirs plus base-level CRX component caches.
+        let profileSubdirs = [
+            "Cache",
+            "Code Cache",
+            "GPUCache",
+            "ShaderCache",
+            "GrShaderCache",
+            "DawnGraphiteCache",
+            "DawnWebGPUCache",
+        ]
+        let baseSubdirs = ["component_crx_cache", "extensions_crx_cache"]
+
+        var paths: [LabeledPath] = baseSubdirs.map { LabeledPath(base.appendingPathComponent($0), label: $0) }
+
         guard let contents = try? fileManager.contentsOfDirectory(
             at: base,
             includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles]
         ) else {
-            return fallbackToBase ? [base] : []
+            if fallbackToBase {
+                paths.append(LabeledPath(base, label: nil))
+            }
+            return paths
         }
 
-        var paths: [URL] = []
         for entry in contents {
             let name = entry.lastPathComponent
             guard name == "Default" || name.hasPrefix("Profile ") else { continue }
-            paths.append(entry.appendingPathComponent("Cache"))
-            paths.append(entry.appendingPathComponent("Code Cache"))
+            for subdir in profileSubdirs {
+                paths.append(LabeledPath(entry.appendingPathComponent(subdir), label: subdir))
+            }
         }
 
-        if paths.isEmpty, fallbackToBase {
-            paths.append(base)
+        if !paths.contains(where: { $0.label == nil }), fallbackToBase {
+            paths.append(LabeledPath(base, label: nil))
         }
 
         return paths
+    }
+}
+
+/// A cache location paired with an optional display suffix distinguishing
+/// it from sibling caches of the same app.
+struct LabeledPath {
+    let url: URL
+    let label: String?
+
+    init(_ url: URL, label: String? = nil) {
+        self.url = url
+        self.label = label
     }
 }
 
@@ -671,6 +945,7 @@ private enum ScanPhase {
     case downloads
     case xcodeData
     case developerCaches
+    case simulatorData
     case dsStoreFiles
     case dockerData
     case homebrewExtended
@@ -685,6 +960,7 @@ private enum ScanPhase {
         case .downloads: return "Downloads"
         case .xcodeData: return "Xcode Data"
         case .developerCaches: return "Developer Caches"
+        case .simulatorData: return "Simulator Data"
         case .dsStoreFiles: return ".DS_Store Files"
         case .dockerData: return "Docker Data"
         case .homebrewExtended: return "Homebrew"

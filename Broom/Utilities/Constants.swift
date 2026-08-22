@@ -35,6 +35,24 @@ enum Constants {
     static let braveCache = userCaches.appendingPathComponent("BraveSoftware/Brave-Browser/Default/Cache")
     static let edgeCache = userCaches.appendingPathComponent("com.microsoft.edgemac")
 
+    // Extended browser breadth
+    static let vivaldiCache = userCaches.appendingPathComponent("com.vivaldi.Vivaldi")
+    static let operaCache = userCaches.appendingPathComponent("com.operasoftware.Opera")
+    static let yandexCacheBase = userCaches.appendingPathComponent("Yandex/YandexBrowser")
+    static let orionCache = userCaches.appendingPathComponent("com.kagi.kagimacOS")
+    static let zenCache = userCaches.appendingPathComponent("zen")
+    static let cometCache = userCaches.appendingPathComponent("Comet")
+    static let heliumCache = userCaches.appendingPathComponent("net.imput.helium")
+    static let qqBrowserCache = userCaches.appendingPathComponent("com.tencent.QQBrowser3")
+    static let thunderbirdCache = userCaches.appendingPathComponent("org.mozilla.thunderbird")
+    static let diaCacheBase = userCaches.appendingPathComponent("Dia/User Data")
+
+    // MARK: - Apple System Data
+
+    static let savedApplicationState = library.appendingPathComponent("Saved Application State")
+    static let messagesStickerCache = home.appendingPathComponent("Messages/StickerCache")
+    static let messagesPreviewStickerCache = home.appendingPathComponent("Messages/Caches/Previews/StickerCache")
+
     // MARK: - Logs
 
     static let userLogs = library.appendingPathComponent("Logs")
@@ -53,6 +71,12 @@ enum Constants {
     static let xcodeDerivedData = library.appendingPathComponent("Developer/Xcode/DerivedData")
     static let xcodeArchives = library.appendingPathComponent("Developer/Xcode/Archives")
 
+    // MARK: - Xcode Simulator
+
+    static let simulatorCaches = library.appendingPathComponent("Developer/CoreSimulator/Caches")
+    static let simulatorDevices = library.appendingPathComponent("Developer/CoreSimulator/Devices")
+    static let simulatorLogs = userLogs.appendingPathComponent("CoreSimulator")
+
     // MARK: - Developer Caches
 
     static let spmCache = userCaches.appendingPathComponent("org.swift.swiftpm")
@@ -61,6 +85,17 @@ enum Constants {
     static let npmCache = home.appendingPathComponent(".npm/_cacache")
     static let yarnCache = userCaches.appendingPathComponent("Yarn")
     static let pipCache = userCaches.appendingPathComponent("pip")
+
+    // Extended developer caches (filesystem-only)
+    static let cargoRegistryCache = home.appendingPathComponent(".cargo/registry/cache")
+    static let bunInstallCache = home.appendingPathComponent(".bun/install/cache")
+    static let corepackCacheCandidates: [URL] = [
+        home.appendingPathComponent(".cache/node/corepack"),
+        userCaches.appendingPathComponent("node/corepack"),
+    ]
+    static let rbenvCache = home.appendingPathComponent(".rbenv/cache")
+    static let gemSpecsCache = home.appendingPathComponent(".gem/specs")
+    static let bundlerCache = home.appendingPathComponent(".bundle/cache")
 
     // MARK: - Docker
 

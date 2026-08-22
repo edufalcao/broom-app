@@ -2,172 +2,137 @@ import Foundation
 import Testing
 @testable import Broom
 
-@Suite("FileScanner")
-struct FileScannerTests {
-    @Test func skipsDeveloperCachesWhenDisabled() async throws {
+@Suite("Cleaner Enrichment")
+struct CleanerEnrichmentTests {
+    @Test func chromiumGPUCacheIsOfferedPerProfile() async throws {
         let root = try TestSupport.makeTempDirectory()
         let locations = try makeLocations(root: root)
-        try TestSupport.writeFile(at: locations.xcodeDerivedData.appendingPathComponent("build.dat"))
-        try TestSupport.writeFile(at: locations.spmCache.appendingPathComponent("package.dat"))
+        let gpuCache = locations.chromeCacheBase
+            .appendingPathComponent("Default/GPUCache")
+        try TestSupport.writeFile(at: gpuCache.appendingPathComponent("shader.bin"))
 
         let scanner = FileScanner(
             locations: locations,
-            preferencesProvider: {
-                AppPreferences(
-                    userDefaults: {
-                        let defaults = UserDefaults(suiteName: UUID().uuidString)!
-                        defaults.set(false, forKey: "showDeveloperCaches")
-                        return defaults
-                    }()
-                )
-            }
+            preferencesProvider: { AppPreferences(userDefaults: UserDefaults(suiteName: UUID().uuidString)!) }
         )
 
         let result = await TestSupport.collectScanResult(from: scanner)
-        #expect(result?.categories.contains(where: { $0.name == "Xcode Data" }) == false)
-        #expect(result?.categories.contains(where: { $0.name == "Developer Caches" }) == false)
+        let browserCaches = result?.categories.first(where: { $0.name == "Browser Caches" })
+        #expect(browserCaches?.items.contains(where: { $0.name == "Chrome — GPUCache" }) == true)
     }
 
-    @Test func skipsDSStoreCategoryWhenDisabled() async throws {
+    @Test func extendedBrowsersAreScanned() async throws {
         let root = try TestSupport.makeTempDirectory()
         let locations = try makeLocations(root: root)
-        try TestSupport.writeFile(at: root.appendingPathComponent("Desktop/.DS_Store"))
+        try TestSupport.writeFile(at: locations.vivaldiCache.appendingPathComponent("data"))
+        try TestSupport.writeFile(at: locations.thunderbirdCache.appendingPathComponent("data"))
 
-        let defaults = UserDefaults(suiteName: UUID().uuidString)!
-        defaults.set(false, forKey: "scanDSStores")
-        let preferences = AppPreferences(userDefaults: defaults)
         let scanner = FileScanner(
             locations: locations,
-            preferencesProvider: { preferences }
+            preferencesProvider: { AppPreferences(userDefaults: UserDefaults(suiteName: UUID().uuidString)!) }
         )
 
         let result = await TestSupport.collectScanResult(from: scanner)
-        #expect(result?.categories.contains(where: { $0.name == ".DS_Store Files" }) == false)
+        let browserCaches = result?.categories.first(where: { $0.name == "Browser Caches" })
+        #expect(browserCaches?.items.contains(where: { $0.name == "Vivaldi" }) == true)
+        #expect(browserCaches?.items.contains(where: { $0.name == "Thunderbird" }) == true)
     }
 
-    @Test func appliesSafeListEntriesToScannedDirectories() async throws {
+    @Test func appleSystemDataAppearsInSystemCaches() async throws {
         let root = try TestSupport.makeTempDirectory()
         let locations = try makeLocations(root: root)
-        let caches = locations.userCaches.appendingPathComponent("com.example.cache")
-        try TestSupport.writeFile(at: caches.appendingPathComponent("cached.dat"))
-
-        let safeListURL = root.appendingPathComponent("safelist.json")
-        let data = try JSONEncoder().encode([caches.path])
-        try data.write(to: safeListURL)
+        try TestSupport.writeFile(
+            at: locations.savedApplicationState.appendingPathComponent("com.example.state")
+        )
+        try TestSupport.writeFile(
+            at: locations.messagesStickerCache.appendingPathComponent("sticker.dat")
+        )
 
         let scanner = FileScanner(
             locations: locations,
-            preferencesProvider: {
-                let defaults = UserDefaults(suiteName: UUID().uuidString)!
-                return AppPreferences(userDefaults: defaults, safeListURL: safeListURL)
-            }
+            preferencesProvider: { AppPreferences(userDefaults: UserDefaults(suiteName: UUID().uuidString)!) }
         )
 
         let result = await TestSupport.collectScanResult(from: scanner)
         let systemCaches = result?.categories.first(where: { $0.name == "System Caches" })
-        #expect(systemCaches?.items.isEmpty == true)
+        #expect(systemCaches?.items.contains(where: { $0.name == "Saved Application State" }) == true)
+        #expect(systemCaches?.items.contains(where: { $0.name == "Messages Sticker Cache" }) == true)
     }
 
-    @Test func respectsMinimumTempFileAge() async throws {
+    @Test func extendedDeveloperCachesAreScanned() async throws {
         let root = try TestSupport.makeTempDirectory()
         let locations = try makeLocations(root: root)
-        let oldFile = locations.userTmpDir.appendingPathComponent("old.tmp")
-        let newFile = locations.userTmpDir.appendingPathComponent("new.tmp")
-        try TestSupport.writeFile(at: oldFile)
-        try TestSupport.writeFile(at: newFile)
-
-        let oldDate = Date().addingTimeInterval(-26 * 3600)
-        try FileManager.default.setAttributes([.modificationDate: oldDate], ofItemAtPath: oldFile.path)
-
-        let defaults = UserDefaults(suiteName: UUID().uuidString)!
-        defaults.set(24, forKey: "minTempFileAgeHours")
-        let preferences = AppPreferences(userDefaults: defaults)
-        let scanner = FileScanner(
-            locations: locations,
-            preferencesProvider: { preferences }
-        )
-
-        let result = await TestSupport.collectScanResult(from: scanner)
-        let tempCategory = result?.categories.first(where: { $0.name == "Temporary Files" })
-        #expect(tempCategory?.items.count == 1)
-        #expect(tempCategory?.items.first?.path.lastPathComponent == "old.tmp")
-    }
-
-    @Test func includesDownloadsAsAwarenessOnlyCategory() async throws {
-        let root = try TestSupport.makeTempDirectory()
-        let locations = try makeLocations(root: root)
-        try TestSupport.writeFile(at: locations.downloads.appendingPathComponent("archive.zip"))
+        try TestSupport.writeFile(at: locations.cargoRegistryCache.appendingPathComponent("crate.crate"))
+        try TestSupport.writeFile(at: locations.bunInstallCache.appendingPathComponent("pkg.tgz"))
+        try TestSupport.writeFile(at: locations.corepackCacheCandidates[0].appendingPathComponent("pnpm"))
 
         let scanner = FileScanner(
             locations: locations,
-            preferencesProvider: {
-                let defaults = UserDefaults(suiteName: UUID().uuidString)!
-                return AppPreferences(userDefaults: defaults)
-            }
+            preferencesProvider: { AppPreferences(userDefaults: UserDefaults(suiteName: UUID().uuidString)!) }
         )
 
         let result = await TestSupport.collectScanResult(from: scanner)
-        let downloads = result?.categories.first(where: { $0.name == "Downloads" })
-
-        #expect(downloads != nil)
-        #expect(downloads?.defaultSelected == false)
-        #expect(downloads?.isSelected == false)
-        #expect(downloads?.items.first?.isSelected == false)
+        let developerCaches = result?.categories.first(where: { $0.name == "Developer Caches" })
+        #expect(developerCaches?.items.contains(where: { $0.name == "Cargo Registry" }) == true)
+        #expect(developerCaches?.items.contains(where: { $0.name == "Bun" }) == true)
+        #expect(developerCaches?.items.contains(where: { $0.name == "Corepack" }) == true)
     }
 
-    @Test func maintainsStableCategoryOrderWithParallelScan() async throws {
+    @Test func simulatorDataSkippedWhileXcodeIsRunning() async throws {
         let root = try TestSupport.makeTempDirectory()
         let locations = try makeLocations(root: root)
-        try TestSupport.writeFile(at: locations.userCaches.appendingPathComponent("com.example.cache/data"))
-        try TestSupport.writeFile(at: locations.downloads.appendingPathComponent("movie.mov"))
+        try TestSupport.writeFile(at: locations.simulatorCaches.appendingPathComponent("cache.bin"))
 
         let scanner = FileScanner(
             locations: locations,
-            preferencesProvider: {
-                let defaults = UserDefaults(suiteName: UUID().uuidString)!
-                defaults.set(false, forKey: "showDeveloperCaches")
-                defaults.set(false, forKey: "scanDSStores")
-                return AppPreferences(userDefaults: defaults)
-            }
+            preferencesProvider: { AppPreferences(userDefaults: UserDefaults(suiteName: UUID().uuidString)!) },
+            runningBundleIDsProvider: { ["com.apple.dt.Xcode"] }
         )
 
         let result = await TestSupport.collectScanResult(from: scanner)
-        #expect(result?.categories.map(\.name) == [
-            "System Caches",
-            "Browser Caches",
-            "System Logs",
-            "Temporary Files",
-            "Downloads",
-        ])
+        #expect(result?.categories.contains(where: { $0.name == "Simulator Data" }) == false)
+    }
+
+    @Test func simulatorDataOfferedWhenToolsNotRunning() async throws {
+        let root = try TestSupport.makeTempDirectory()
+        let locations = try makeLocations(root: root)
+        try TestSupport.writeFile(at: locations.simulatorLogs.appendingPathComponent("sim.log"))
+        let deviceTmp = locations.simulatorDevices
+            .appendingPathComponent("AAAAAAAA-1111-2222-3333-444444444444")
+            .appendingPathComponent("data/tmp")
+        try TestSupport.writeFile(at: deviceTmp.appendingPathComponent("scratch.dat"))
+
+        let scanner = FileScanner(
+            locations: locations,
+            preferencesProvider: { AppPreferences(userDefaults: UserDefaults(suiteName: UUID().uuidString)!) },
+            runningBundleIDsProvider: { [] }
+        )
+
+        let result = await TestSupport.collectScanResult(from: scanner)
+        let simulatorData = result?.categories.first(where: { $0.name == "Simulator Data" })
+        #expect(simulatorData != nil)
+        #expect(simulatorData?.items.contains(where: { $0.name == "Simulator Logs" }) == true)
+        #expect(simulatorData?.items.contains(where: { $0.name.hasPrefix("Simulator Temp (AAAAAAAA)") }) == true)
     }
 
     private func makeLocations(root: URL) throws -> FileScannerLocations {
         let library = root.appendingPathComponent("Library")
         let caches = library.appendingPathComponent("Caches")
-        let downloads = root.appendingPathComponent("Downloads")
-        let chromeBase = caches.appendingPathComponent("Google/Chrome")
-        let braveBase = caches.appendingPathComponent("BraveSoftware/Brave-Browser")
-        let edgeBase = caches.appendingPathComponent("com.microsoft.edgemac")
-        let tmp = root.appendingPathComponent("tmp")
-
-        for directory in [library, caches, downloads, chromeBase, braveBase, edgeBase, tmp] {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        }
 
         return FileScannerLocations(
             home: root,
             userCaches: caches,
-            downloads: downloads,
-            chromeCacheBase: chromeBase,
+            downloads: root.appendingPathComponent("Downloads"),
+            chromeCacheBase: caches.appendingPathComponent("Google/Chrome"),
             firefoxCache: caches.appendingPathComponent("org.mozilla.firefox"),
             safariCache: caches.appendingPathComponent("com.apple.Safari"),
             arcCache: caches.appendingPathComponent("company.thebrowser.Browser"),
-            braveCacheBase: braveBase,
-            edgeCacheBase: edgeBase,
+            braveCacheBase: caches.appendingPathComponent("BraveSoftware/Brave-Browser"),
+            edgeCacheBase: caches.appendingPathComponent("com.microsoft.edgemac"),
             userLogs: library.appendingPathComponent("Logs"),
             systemLogs: root.appendingPathComponent("SystemLogs"),
             diagnosticReports: library.appendingPathComponent("Logs/DiagnosticReports"),
-            userTmpDir: tmp,
+            userTmpDir: root.appendingPathComponent("tmp"),
             systemTmp: root.appendingPathComponent("SystemTmp"),
             xcodeDerivedData: library.appendingPathComponent("Developer/Xcode/DerivedData"),
             xcodeArchives: library.appendingPathComponent("Developer/Xcode/Archives"),

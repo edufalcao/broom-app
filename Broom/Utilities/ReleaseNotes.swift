@@ -8,10 +8,39 @@ struct ReleaseNoteSection: Identifiable {
 }
 
 enum ReleaseNotes {
-    static let currentVersion = "1.3.1"
-    static let currentReleaseDate = "2026-03-17"
+    static let currentVersion = "1.4.0"
+    static let currentReleaseDate = "2026-08-22"
 
     static let versions: [(version: String, date: String, sections: [ReleaseNoteSection])] = [
+        (
+            version: "1.4.0",
+            date: "2026-08-22",
+            sections: [
+                ReleaseNoteSection(
+                    title: "System Cleaner",
+                    items: [
+                        "Browser cache cleaning now covers GPU, shader, and CRX component caches for Chromium browsers, with per-item labels.",
+                        "Ten more browsers supported: Vivaldi, Opera, Yandex, Orion, Zen, Comet, Helium, QQ Browser, Thunderbird, and Dia.",
+                        "Saved Application State and Messages sticker caches are now offered under System Caches.",
+                        "New developer cache targets: Cargo Registry, Bun, Corepack, rbenv downloads, RubyGems Specs, and Bundler.",
+                        "New Simulator Data category cleans simulator caches, logs, and per-device temp files; skipped while Xcode or Simulator is running.",
+                    ]
+                ),
+                ReleaseNoteSection(
+                    title: "Trust",
+                    items: [
+                        "Cleaner and Uninstaller completion screens now show how many items were blocked by safety rules.",
+                        "LaunchServices database refresh no longer blocks a thread during uninstalls.",
+                    ]
+                ),
+                ReleaseNoteSection(
+                    title: "Quality",
+                    items: [
+                        "185 tests across 28 suites, plus new UI smoke test target with code coverage enabled in CI.",
+                    ]
+                ),
+            ]
+        ),
         (
             version: "1.3.1",
             date: "2026-03-17",
