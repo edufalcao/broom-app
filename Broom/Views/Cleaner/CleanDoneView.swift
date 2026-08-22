@@ -4,6 +4,7 @@ struct CleanDoneView: View {
     let freedBytes: Int64
     let itemsCleaned: Int
     let itemsFailed: Int
+    let itemsBlocked: Int
     let movedToTrash: Bool
     let onScanAgain: () -> Void
 
@@ -29,6 +30,12 @@ struct CleanDoneView: View {
                 Text("\(itemsFailed) items could not be removed")
                     .font(.caption)
                     .foregroundStyle(.orange)
+            }
+
+            if itemsBlocked > 0 {
+                Text("\(itemsBlocked) items were blocked by safety rules")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Button(action: onScanAgain) {

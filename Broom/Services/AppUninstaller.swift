@@ -160,7 +160,7 @@ actor AppUninstaller: AppUninstalling {
                     _ = launchServices.unregisterApp(at: plan.app.bundlePath)
 
                     continuation.yield(.phase(.refreshingDatabase))
-                    _ = launchServices.refreshDatabase()
+                    _ = await launchServices.refreshDatabase()
                 }
 
                 let report = CleanReport(

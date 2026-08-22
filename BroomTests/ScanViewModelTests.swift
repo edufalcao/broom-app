@@ -127,7 +127,7 @@ struct ScanViewModelTests {
             return false
         }
 
-        if case .done(_, _, _, let movedToTrash) = viewModel.state {
+        if case .done(_, _, _, _, let movedToTrash) = viewModel.state {
             #expect(movedToTrash == true)
         } else {
             Issue.record("Expected done state")
@@ -166,8 +166,47 @@ struct ScanViewModelTests {
             return false
         }
 
-        if case .done(_, _, _, let movedToTrash) = viewModel.state {
+        if case .done(_, _, _, _, let movedToTrash) = viewModel.state {
             #expect(movedToTrash == false)
+        } else {
+            Issue.record("Expected done state")
+        }
+    }
+
+    @MainActor
+    @Test func doneStateCarriesItemsBlocked() async {
+        let cleaner = MockCleaner(
+            report: CleanReport(freedBytes: 100, itemsCleaned: 1, itemsFailed: 0, itemsBlocked: 2, errors: [], duration: 0.1)
+        )
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        defaults.set(true, forKey: "moveToTrash")
+
+        let viewModel = ScanViewModel(
+            scanner: MockScanner { AsyncStream { $0.finish() } },
+            cleaner: cleaner,
+            orphanDetector: MockOrphanDetector(orphans: []),
+            preferencesProvider: { AppPreferences(userDefaults: defaults) }
+        )
+        viewModel.scanResult = ScanResult(
+            categories: [
+                CleanCategory(name: "Test", icon: "folder", description: "", items: [
+                    CleanableItem(path: URL(fileURLWithPath: "/tmp/a"), size: 100),
+                ]),
+            ],
+            orphanedApps: [],
+            scanDuration: 0.1,
+            scanDate: Date()
+        )
+
+        viewModel.startClean()
+        viewModel.confirmClean()
+        await TestSupport.awaitCondition {
+            if case .done = viewModel.state { return true }
+            return false
+        }
+
+        if case .done(_, _, _, let blocked, _) = viewModel.state {
+            #expect(blocked == 2)
         } else {
             Issue.record("Expected done state")
         }

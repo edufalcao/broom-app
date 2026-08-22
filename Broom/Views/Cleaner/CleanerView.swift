@@ -28,11 +28,12 @@ struct CleanerView: View {
                     totalCount: total
                 )
 
-            case .done(let freed, let cleaned, let failed, let movedToTrash):
+            case .done(let freed, let cleaned, let failed, let blocked, let movedToTrash):
                 CleanDoneView(
                     freedBytes: freed,
                     itemsCleaned: cleaned,
                     itemsFailed: failed,
+                    itemsBlocked: blocked,
                     movedToTrash: movedToTrash,
                     onScanAgain: { viewModel.reset() }
                 )

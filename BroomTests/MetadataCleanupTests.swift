@@ -12,9 +12,9 @@ struct LaunchServicesManagerTests {
         _ = result
     }
 
-    @Test func refreshDatabaseDoesNotThrow() {
+    @Test func refreshDatabaseDoesNotThrow() async {
         let manager = LaunchServicesManager()
-        let result = manager.refreshDatabase()
+        let result = await manager.refreshDatabase()
         _ = result
     }
 }

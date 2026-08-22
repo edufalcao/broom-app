@@ -28,7 +28,7 @@ struct LaunchServicesManager {
         return success
     }
 
-    func refreshDatabase() -> Bool {
+    func refreshDatabase() async -> Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: Self.lsregisterPath)
         process.arguments = ["-kill", "-r", "-domain", "local", "-domain", "system", "-domain", "user"]
@@ -42,25 +42,35 @@ struct LaunchServicesManager {
             return false
         }
 
-        let deadline = DispatchTime.now() + .seconds(10)
-        let group = DispatchGroup()
-        group.enter()
-        DispatchQueue.global(qos: .utility).async {
-            process.waitUntilExit()
-            group.leave()
+        let exitStatus = await withTaskGroup(of: Int32?.self) { group in
+            group.addTask {
+                process.waitUntilExit()
+                return process.terminationStatus
+            }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(10))
+                guard !Task.isCancelled else { return nil }
+                if process.isRunning {
+                    process.terminate()
+                }
+                return nil
+            }
+
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
         }
 
-        if group.wait(timeout: deadline) == .timedOut {
-            process.terminate()
+        if exitStatus == nil {
             Log.uninstaller.warning("lsregister timed out after 10 seconds")
             return false
         }
 
-        let success = process.terminationStatus == 0
+        let success = exitStatus == 0
         if success {
             Log.uninstaller.info("LaunchServices database refreshed")
         } else {
-            Log.uninstaller.warning("lsregister exited with status \(process.terminationStatus)")
+            Log.uninstaller.warning("lsregister exited with status \(exitStatus ?? -1)")
         }
         return success
     }

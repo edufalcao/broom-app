@@ -75,7 +75,7 @@ struct UninstallerView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            case .done(let freed, _, let failed):
+            case .done(let freed, _, let failed, let blocked):
                 VStack(spacing: 16) {
                     Spacer()
                     Image(systemName: "checkmark.circle.fill")
@@ -89,6 +89,11 @@ struct UninstallerView: View {
                         Text("\(failed) items could not be removed")
                             .font(.caption)
                             .foregroundStyle(.orange)
+                    }
+                    if blocked > 0 {
+                        Text("\(blocked) items were blocked by safety rules")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     Button("Back to apps list") {
                         viewModel.state = .ready

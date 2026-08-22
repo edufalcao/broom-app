@@ -22,7 +22,7 @@ class UninstallerViewModel {
         case loading
         case ready
         case uninstalling(progress: Double, currentItem: String, phase: UninstallPhase?)
-        case done(freedBytes: Int64, itemsCleaned: Int, itemsFailed: Int)
+        case done(freedBytes: Int64, itemsCleaned: Int, itemsFailed: Int, itemsBlocked: Int)
 
         static func == (lhs: State, rhs: State) -> Bool {
             switch (lhs, rhs) {
@@ -236,7 +236,8 @@ class UninstallerViewModel {
                     state = .done(
                         freedBytes: report.freedBytes,
                         itemsCleaned: report.itemsCleaned,
-                        itemsFailed: report.itemsFailed
+                        itemsFailed: report.itemsFailed,
+                        itemsBlocked: report.itemsBlocked
                     )
 
                     try? await Task.sleep(for: .seconds(3))
