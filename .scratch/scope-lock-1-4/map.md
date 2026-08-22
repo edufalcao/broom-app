@@ -25,6 +25,7 @@ A locked scope decision for Broom 1.4: `docs/product/prd.md` revised (features �
 - [Cleaner enrichment set from Mole catalogue](issues/04-cleaner-enrichment.md): adopt browser depth (minus Service Worker) + breadth (10 more browsers), Apple system caches, filesystem-only dev-tool caches, Xcode Simulator extras, iCloud Drive Downloads as sweep source; reject owner-command cleanups; defer container/media/editor-leftover families to a future effort.
 - [1.4 sequencing and release cut](issues/05-sequencing-and-release-cut.md): two cuts. 1.4.0 = false-positive fixes, blocked-results surfacing, TPC fix, Cleaner enrichment, UI-test target started early. 1.5.0 = Installers mode first, then Project Artifacts, with uninstall preview trust paired into 1.5.0 work.
 - [Write the scope lock: PRD revision + ADR](issues/06-write-scope-lock.md): PRD §2.1.1 enriched, §2.4.3 Installers Mode and §2.5 Project Artifacts added, §8 roadmap rewritten to the 1.4.0/1.5.0 plan; `docs/adr/0001-clean-room-porting-and-product-boundary.md` records the clean-room stance and boundary; README Homebrew heading softened to "(planned)".
+- 1.4.0 shipped (2026-08-22): false-positive fixes were already in 1.3.x (plan doc over-counted them); blocked-result surfacing, non-blocking LS refresh, UI-test target + coverage, and full Cleaner enrichment implemented, tested (185 unit + 3 UI), released as v1.4.0 with DMG asset.
 
 ## Not yet specified
 
