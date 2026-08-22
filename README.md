@@ -68,7 +68,7 @@ A free, open-source macOS utility that helps you reclaim disk space and maintain
 ### Download
 Download the latest DMG from [Releases](../../releases).
 
-### Homebrew (coming soon)
+### Homebrew (planned)
 ```
 brew install --cask broom
 ```

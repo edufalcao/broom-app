@@ -53,6 +53,11 @@ A lightweight, trustworthy system cleaner with a standard macOS window, clear pr
 | **Browser Caches — Arc** | `~/Library/Caches/company.thebrowser.Browser/` | Chromium-based, same rules as Chrome. |
 | **Browser Caches — Brave** | `~/Library/Caches/BraveSoftware/Brave-Browser/Default/Cache/` | Chromium-based. |
 | **Browser Caches — Edge** | `~/Library/Caches/com.microsoft.edgemac/` | Chromium-based. |
+| **Browser Caches — Extended Depth** | Per-profile `GPUCache/`, `ShaderCache`/`DawnGraphiteCache`/`DawnWebGPUCache`, `component_crx_cache/`, `extensions_crx_cache/` for Chromium browsers | Planned v1.4.0. Same per-profile rules as `Cache/`. Service Worker caches are explicitly out of scope until a protected-domain safety design exists. |
+| **Browser Caches — Extended Breadth** | Vivaldi, Opera, Zen, Comet, Helium, Orion, QQ Browser, Yandex, Dia, Thunderbird | Planned v1.4.0. Chromium- or Firefox-shaped profile logic reused; same safety rules as existing browsers. |
+| **Apple System Caches** | QuickLook thumbnail cache, `com.apple.helpd`, `com.apple.parsecd`, GeoServices, Saved Application State, Suggestions, Messages sticker caches | Planned v1.4.0. Regenerable system-maintained caches mapped into System Caches phase. |
+| **Developer Caches — Extended** | Cargo registry/cache, gem/bundler caches, bun cache, Corepack cache, Docker BuildX cache, rbenv downloads | Planned v1.4.0. Filesystem-only deletion. Owner-command cleanups that shell out to third-party binaries are rejected (see ADR 0001). |
+| **Xcode Simulator Data** | Simulator caches, device temp dirs, CoreSimulator logs | Planned v1.4.0. Offered only when Xcode/Simulator is not running. |
 | **System Logs** | `~/Library/Logs/`, `/Library/Logs/` | Log files accumulate indefinitely. Safe to delete. |
 | **Crash Reports** | `~/Library/Logs/DiagnosticReports/` | Old crash reports. Safe to delete. |
 | **Temporary Files** | User's `$TMPDIR`, `/tmp/` | OS-managed temp dirs. Only delete files older than 7 days by default (configurable). |
@@ -269,6 +274,41 @@ Strategy 4: LaunchAgent/LaunchDaemon discovery
 - Large-file cleanup always moves selected files to Trash
 - This flow is intentionally separate from the system cleaner so users can review large personal files without mixing them into cache-oriented categories
 - The final summary shows bytes freed and number of files moved
+
+#### 2.4.3 Installers Mode (Planned v1.5.0)
+
+A dedicated mode inside the Large Files section that surfaces leftover installer files.
+
+- **File types:** `.dmg`, `.pkg`, `.mpkg`, `.iso`, `.xip` by extension; `.zip` only if its first ~50 archive entries contain an installer-looking payload (`.app`, `.pkg`, `.dmg`, `.xip`)
+- **Sources:** `~/Downloads`, `~/Desktop`, `~/Documents`, and the Homebrew DMG cache, scanned to depth 2
+- **Age gate:** files younger than 7 days (configurable in Settings) are never offered; mounted-volume/in-use detection applies regardless of age
+- **Boundaries:** Mail Downloads stays with the Mail Attachments cleaner category; no file is ever offered twice — the Cleaner's Downloads awareness row excludes files surfaced here
+- Reuses Large Files machinery: size/date sort, Finder reveal, trash-only deletion
+
+---
+
+### 2.5 Feature F5: Project Artifacts (Planned v1.5.0)
+
+**Priority:** P1
+**Description:** Find regenerable build artifacts inside project directories (e.g. `node_modules`, `target`, `.build`) and reclaim their disk space per project. Distinct from the Cleaner, which handles shared cache stores outside any project tree.
+
+#### 2.5.1 Artifact Families
+
+The Mole-derived family catalogue of directory names, excluding `DerivedData` (already offered by the Cleaner's Xcode phase; shared stores never appear in Project Artifacts). In-project families such as `Pods` and `.build` are included. Detection honors standard `CACHEDIR.TAG` markers.
+
+#### 2.5.2 Project Discovery
+
+- Fixed default search roots (common dev directories) plus `~/Library/CloudStorage`
+- A user-editable search-root list in Settings, following the existing safe-list pattern
+- A directory qualifies as a project when it contains a project indicator (`package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, `Package.swift`, `.git`, etc.)
+- Bounded scan depth relative to each root
+
+#### 2.5.3 Recency Classification
+
+- Each artifact is classified recent, old, or uncertain against a 7-day modification-time threshold using a bounded recursive probe
+- Probes that time out or fail to read classify as uncertain; uncertain is treated as protected
+- Recent artifacts start deselected and show an age label (recent = low confidence = deselected)
+- A delete-time re-check re-classifies artifacts; anything that became active since scan is dropped from the batch
 
 ---
 
@@ -644,16 +684,38 @@ broom-app/
 
 ## 8. Future Roadmap
 
-These features are planned for future versions.
+Scope locked via the 1.4 scope-lock effort (`.scratch/scope-lock-1-4/map.md`).
 
-| Feature | Version | Description |
-|---------|---------|-------------|
-| **Duplicate File Finder** | v1.2 | Content-hash-based duplicate detection |
-| **Scheduled Cleaning** | v1.2 | Run scans on a schedule (weekly/monthly) with notification |
-| **Auto-Update (Sparkle)** | v1.2 | In-app update checking and installation |
-| **Disk Usage Visualization** | v1.2 | Treemap or sunburst chart of disk usage |
-| **CLI Interface** | v1.2 | `broom scan`, `broom clean` for terminal users |
-| **Localization** | v1.2 | Multi-language support |
+### v1.4.0 — Fixes and Cleaner Enrichment
+
+| Item | Source |
+|------|--------|
+| False-positive orphan fixes (Teams migration containers, `group.com.apple.*`, Microsoft AutoUpdate helpers) | 1.3.0 release plan leftovers |
+| Blocked-result surfacing: completion screens show what was blocked and why (`itemsBlocked`) | 1.3.0 Workstream 3 |
+| LaunchServices database refresh: replace blocking wait with non-blocking pattern | 1.3.0 Workstream 5 |
+| Cleaner enrichment: browser cache depth/breadth, Apple system caches, extended dev-tool caches, Xcode Simulator data | Mole catalogue adoption |
+| UI test target with first accessibility identifiers, grown alongside every subsequent change | 1.3.0 Workstream 4 |
+
+### v1.5.0 — Features
+
+| Item | Description |
+|------|-------------|
+| **Installers Mode** | Installer-file sweep inside Large Files (see §2.4.3) |
+| **Project Artifacts** | Per-project regenerable build-artifact cleanup in a new sidebar section (see §2.5) |
+| **Uninstall Preview Trust** | Single editable backing plan for detail view + confirmation sheet; mixed-state group toggles; duplicate "ago" label fix |
+
+### Later / Unscheduled
+
+| Feature | Description |
+|---------|-------------|
+| **Duplicate File Finder** | Content-hash-based duplicate detection |
+| **Scheduled Cleaning** | Run scans on a schedule (weekly/monthly) with notification |
+| **Auto-Update (Sparkle)** | In-app update checking and installation |
+| **Disk Usage Visualization** | Treemap or sunburst chart of disk usage |
+| **CLI Interface** | `broom scan`, `broom clean` for terminal users |
+| **Localization** | Multi-language support |
+
+Ruled out of the product boundary (see ADR 0001): live system status dashboard, maintenance/optimize tasks, treemap disk visualizer as a standalone mode.
 
 ---
 
