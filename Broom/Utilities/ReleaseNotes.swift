@@ -8,10 +8,44 @@ struct ReleaseNoteSection: Identifiable {
 }
 
 enum ReleaseNotes {
-    static let currentVersion = "1.4.0"
+    static let currentVersion = "1.5.0"
     static let currentReleaseDate = "2026-08-22"
 
     static let versions: [(version: String, date: String, sections: [ReleaseNoteSection])] = [
+        (
+            version: "1.5.0",
+            date: "2026-08-22",
+            sections: [
+                ReleaseNoteSection(
+                    title: "Project Artifacts",
+                    items: [
+                        "New Artifacts section finds regenerable build outputs (node_modules, target, .build, Pods, and more) grouped by project.",
+                        "Active projects are detected by modification time and start deselected; a final re-check before deletion drops anything that went active.",
+                        "Configurable search roots in Settings, plus support for CACHEDIR.TAG-marked cache directories.",
+                    ]
+                ),
+                ReleaseNoteSection(
+                    title: "Installers",
+                    items: [
+                        "New Installers mode in Large Files reclaims leftover disk images, packages, and app-bearing ZIP archives from Downloads, Desktop, Documents, and the Homebrew download cache.",
+                        "Mounted disk images are never offered, and freshly downloaded files are protected by an adjustable age gate.",
+                    ]
+                ),
+                ReleaseNoteSection(
+                    title: "Trust",
+                    items: [
+                        "The uninstall detail view, confirmation sheet, and executed file set are now always identical — planner-discovered files appear up front and stay editable.",
+                        "Group checkboxes set an explicit selection state instead of toggling every row, and the completion screen stays until dismissed.",
+                    ]
+                ),
+                ReleaseNoteSection(
+                    title: "Quality",
+                    items: [
+                        "206 tests across 32 suites, plus UI smoke tests for the new sections.",
+                    ]
+                ),
+            ]
+        ),
         (
             version: "1.4.0",
             date: "2026-08-22",

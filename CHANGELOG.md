@@ -4,6 +4,25 @@ All notable changes to Broom will be documented in this file.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-08-22
+
+### Added
+- New **Artifacts** sidebar section: per-project regenerable build-artifact cleanup (node_modules, target, .build, Pods, and the full adopted family list minus DerivedData)
+- Project discovery via indicator files (.git, package.json, Cargo.toml, go.mod, pyproject.toml, Package.swift, …); CACHEDIR.TAG-marked directories offered as regenerable cache content
+- Recency classification with bounded recursive mtime probe, fail-closed to uncertain; only confidently-old artifacts selected by default and a delete-time re-check drops anything that went active
+- Configurable project search roots in Settings (defaults: Projects, dev, www, GitHub, Code, Workspace, Repos, Development, CloudStorage)
+- New **Installers** mode in Large Files: leftover DMG/PKG/MPKG/ISO/XIP files plus app-bearing ZIP archives (in-process central-directory inspection) from Downloads, Desktop, Documents, and Homebrew's download cache
+- Mounted disk images never offered regardless of age; uniform installer age gate (default 7 days) adjustable in Settings
+
+### Changed
+- Uninstall preview is now truthful end to end: planner-discovered artifacts merge into the editable detail list before the plan is built, so detail view, confirmation sheet, and execution are identical
+- Group header toggles set an explicit selection state instead of toggling every row
+- Uninstall completion screen stays until dismissed instead of auto-returning after 3 seconds
+- Fixed duplicated "ago" suffix in the app detail header
+
+### Quality
+- 206 tests across 32 suites, including ZIP inspector, installer scanner, recency classifier, artifact scanner, and uninstall-plan trust regressions
+
 ## [1.4.0] - 2026-08-22
 
 ### Added
