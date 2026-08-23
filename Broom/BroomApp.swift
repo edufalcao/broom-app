@@ -3,12 +3,14 @@ import SwiftUI
 enum SidebarSection: String, CaseIterable, Hashable {
     case cleaner = "Clean"
     case uninstaller = "Uninstall"
+    case artifacts = "Artifacts"
     case largeFiles = "Large Files"
 
     var icon: String {
         switch self {
         case .cleaner: return "magnifyingglass"
         case .uninstaller: return "shippingbox"
+        case .artifacts: return "archivebox"
         case .largeFiles: return "doc.badge.arrow.up"
         }
     }
@@ -59,6 +61,11 @@ struct BroomApp: App {
                     appDelegate.router.selectedSection = .largeFiles
                 }
                 .keyboardShortcut("3", modifiers: [.command])
+
+                Button("Project Artifacts") {
+                    appDelegate.router.selectedSection = .artifacts
+                }
+                .keyboardShortcut("4", modifiers: [.command])
             }
         }
 

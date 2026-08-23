@@ -179,4 +179,44 @@ enum Constants {
     static let userLaunchAgents = library.appendingPathComponent("LaunchAgents")
     static let systemLaunchAgents = URL(fileURLWithPath: "/Library/LaunchAgents")
     static let systemLaunchDaemons = URL(fileURLWithPath: "/Library/LaunchDaemons")
+
+    // MARK: - Project Artifacts
+
+    /// UserDefaults key holding the user's custom search roots.
+    static let projectArtifactRootsKey = "projectArtifactRoots"
+
+    static let defaultProjectArtifactRoots: [URL] = [
+        home.appendingPathComponent("Projects"),
+        home.appendingPathComponent("dev"),
+        home.appendingPathComponent("www"),
+        home.appendingPathComponent("GitHub"),
+        home.appendingPathComponent("Code"),
+        home.appendingPathComponent("Workspace"),
+        home.appendingPathComponent("Repos"),
+        home.appendingPathComponent("Development"),
+        library.appendingPathComponent("CloudStorage"),
+    ]
+
+    /// Directory names treated as regenerable build artifacts.
+    /// DerivedData deliberately absent: it is a shared store owned by the Cleaner.
+    static let projectArtifactFamilies: Set<String> = [
+        "node_modules", "target", "build", "dist", "venv", ".venv",
+        ".pytest_cache", ".mypy_cache", ".tox", ".nox", ".ruff_cache",
+        ".gradle", ".terragrunt-cache", "__pycache__", ".next", ".nuxt",
+        ".output", "vendor", "obj", ".turbo", ".parcel-cache", ".dart_tool",
+        ".zig-cache", "zig-out", ".angular", ".svelte-kit", ".astro",
+        "coverage", "Pods", ".cxx", ".expo", ".build",
+    ]
+
+    /// Files whose presence marks a directory as a project root. `.git`
+    /// doubles as the monorepo marker.
+    static let projectIndicatorNames: Set<String> = [
+        ".git", "package.json", "Cargo.toml", "go.mod", "pyproject.toml",
+        "requirements.txt", "pom.xml", "build.gradle", "Gemfile",
+        "composer.json", "pubspec.yaml", "Package.swift", "Makefile",
+        "build.zig", "project.yml",
+    ]
+
+    /// Standard marker declaring a directory safe to delete wholesale.
+    static let cacheDirTag = "CACHEDIR.TAG"
 }

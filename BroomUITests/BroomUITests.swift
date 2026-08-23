@@ -6,7 +6,7 @@ final class BroomUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        for title in ["Clean", "Uninstall", "Large Files"] {
+        for title in ["Clean", "Uninstall", "Artifacts", "Large Files"] {
             XCTAssertTrue(
                 app.staticTexts[title].waitForExistence(timeout: 10),
                 "Sidebar row '\(title)' not found"
@@ -35,6 +35,21 @@ final class BroomUITests: XCTestCase {
         XCTAssertTrue(
             app.buttons["uninstaller-scan-button"].waitForExistence(timeout: 10),
             "Uninstaller idle view did not appear after selecting the section"
+        )
+    }
+
+    @MainActor
+    func testSwitchingToArtifactsShowsScanButton() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let artifactsRow = app.staticTexts["Artifacts"]
+        XCTAssertTrue(artifactsRow.waitForExistence(timeout: 10))
+        artifactsRow.click()
+
+        XCTAssertTrue(
+            app.buttons["artifacts-scan-button"].waitForExistence(timeout: 10),
+            "Project Artifacts idle view did not appear after selecting the section"
         )
     }
 }

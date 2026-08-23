@@ -4,6 +4,7 @@ struct MainWindow: View {
     @Environment(AppRouter.self) private var router
     @State private var scanViewModel = ScanViewModel()
     @State private var uninstallerViewModel = UninstallerViewModel()
+    @State private var artifactsViewModel = ProjectArtifactsViewModel()
     @State private var largeFilesViewModel = LargeFilesViewModel()
     @State private var installersViewModel = InstallersViewModel()
 
@@ -19,6 +20,7 @@ struct MainWindow: View {
         switch section {
         case .cleaner: return scanViewModel.state.isBusy
         case .uninstaller: return uninstallerViewModel.state == .loading
+        case .artifacts: return artifactsViewModel.state.isBusy
         case .largeFiles: return largeFilesViewModel.state.isBusy || installersViewModel.state.isBusy
         }
     }
@@ -57,6 +59,8 @@ struct MainWindow: View {
                 CleanerView(viewModel: scanViewModel)
             case .uninstaller:
                 UninstallerView(viewModel: uninstallerViewModel)
+            case .artifacts:
+                ProjectArtifactsView(viewModel: artifactsViewModel)
             case .largeFiles:
                 LargeFilesSectionView(
                     largeFilesViewModel: largeFilesViewModel,

@@ -13,6 +13,11 @@ struct SettingsView: View {
                     Label("Cleaning", systemImage: "trash")
                 }
 
+            ProjectsSettingsView()
+                .tabItem {
+                    Label("Projects", systemImage: "archivebox")
+                }
+
             SafeListSettingsView()
                 .tabItem {
                     Label("Safe List", systemImage: "shield")
