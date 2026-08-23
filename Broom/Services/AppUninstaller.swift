@@ -38,55 +38,8 @@ actor AppUninstaller: AppUninstalling {
         self.loginItemManager = loginItemManager
     }
 
-    func prepareUninstall(app: InstalledApp) async -> UninstallPlan {
-        let plannedArtifacts = planner.planArtifacts(for: app)
-
-        var existingFiles = app.associatedFiles.filter(\.isSelected)
-        if existingFiles.isEmpty && !app.associatedFilesLoaded {
-            existingFiles = await appInventory.findAssociatedFiles(
-                for: app.bundleIdentifier,
-                appName: app.name
-            )
-        }
-
-        var seen = Set<String>()
-        var files: [CleanableItem] = []
-        for item in plannedArtifacts {
-            let key = item.path.standardizedFileURL.path
-            if seen.insert(key).inserted {
-                files.append(item)
-            }
-        }
-        for item in existingFiles {
-            let key = item.path.standardizedFileURL.path
-            if seen.insert(key).inserted {
-                files.append(item)
-            }
-        }
-
-        if app.bundleIsSelected {
-            let bundlePath = app.bundlePath.standardizedFileURL.path
-            if seen.insert(bundlePath).inserted {
-                let bundleItem = CleanableItem(
-                    path: app.bundlePath,
-                    name: "\(app.name).app",
-                    size: app.bundleSize,
-                    source: .appBundle
-                )
-                files.append(bundleItem)
-            }
-        }
-
-        let totalSize = files.reduce(0) { $0 + $1.size }
-        let isRunning = RunningAppDetector.isRunning(bundleIdentifier: app.bundleIdentifier)
-
-        return UninstallPlan(
-            app: app,
-            filesToRemove: files,
-            totalSize: totalSize,
-            isRunning: isRunning,
-            isProtected: app.isProtected
-        )
+    func discoverArtifacts(for app: InstalledApp) async -> [CleanableItem] {
+        planner.planArtifacts(for: app)
     }
 
     nonisolated func executeUninstall(plan: UninstallPlan, moveToTrash: Bool = true) -> AsyncStream<CleanProgress> {

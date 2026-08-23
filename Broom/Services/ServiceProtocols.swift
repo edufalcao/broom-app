@@ -21,7 +21,11 @@ protocol AppInventoryServing {
 }
 
 protocol AppUninstalling {
-    func prepareUninstall(app: InstalledApp) async -> UninstallPlan
+    /// Planner-discovered artifacts for an app. These are merged into the
+    /// app's editable associated-file list before a plan is built, so the
+    /// detail view, confirmation sheet, and execution always describe the
+    /// same file set.
+    func discoverArtifacts(for app: InstalledApp) async -> [CleanableItem]
     func executeUninstall(plan: UninstallPlan, moveToTrash: Bool) -> AsyncStream<CleanProgress>
 }
 

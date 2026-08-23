@@ -243,6 +243,9 @@ struct UninstallerView: View {
                         app: app,
                         onToggleBundle: { viewModel.toggleBundleSelection() },
                         onToggleAssociatedFile: { viewModel.toggleAssociatedFile($0) },
+                        onSetGroupSelection: { group, selected in
+                            viewModel.setArtifactGroup(group, selected: selected)
+                        },
                         onUninstall: { viewModel.prepareUninstall() }
                     )
                 } else {

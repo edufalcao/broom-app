@@ -150,13 +150,49 @@ class UninstallerViewModel {
         updateSelectedApp(app)
     }
 
+    /// Group header action: sets an explicit target state for every row in
+    /// the group instead of toggling each row individually.
+    func setArtifactGroup(_ sourceRawValue: String, selected: Bool) {
+        guard var app = selectedApp else { return }
+        for index in app.associatedFiles.indices {
+            let group = app.associatedFiles[index].source?.rawValue ?? "Other"
+            if group == sourceRawValue {
+                app.associatedFiles[index].isSelected = selected
+            }
+        }
+        updateSelectedApp(app)
+    }
+
     func prepareUninstall(for app: InstalledApp? = nil) {
-        guard let app = app ?? selectedApp, !app.isProtected else { return }
+        guard var working = app ?? selectedApp, !working.isProtected else { return }
         moveToTrashForUninstall = preferencesProvider().moveToTrash
 
         Task {
-            let plan = await appUninstaller.prepareUninstall(app: app)
-            guard plan.selectedCount > 0 else { return }
+            if !working.associatedFilesLoaded {
+                working.associatedFiles = await appInventory.findAssociatedFiles(
+                    for: working.bundleIdentifier,
+                    appName: working.name
+                )
+                working.associatedFilesLoaded = true
+            }
+
+            // Merge planner-discovered artifacts into the editable detail
+            // list. From here on the detail view, confirmation sheet, and
+            // execution all describe exactly this file set.
+            let discovered = await appUninstaller.discoverArtifacts(for: working)
+            var seen = Set(working.associatedFiles.map { $0.path.standardizedFileURL.path })
+            for item in discovered {
+                if seen.insert(item.path.standardizedFileURL.path).inserted {
+                    working.associatedFiles.append(item)
+                }
+            }
+            updateSelectedApp(working)
+
+            let plan = Self.buildPlan(
+                for: working,
+                isRunning: runningAppController.isRunning(working.bundleIdentifier)
+            )
+            guard !plan.filesToRemove.isEmpty else { return }
             uninstallPlan = plan
 
             if plan.isRunning {
@@ -165,6 +201,28 @@ class UninstallerViewModel {
                 showUninstallConfirmation = true
             }
         }
+    }
+
+    /// The uninstall plan is derived purely from the app's visible,
+    /// user-editable selection — nothing hidden is added later.
+    static func buildPlan(for app: InstalledApp, isRunning: Bool) -> UninstallPlan {
+        var files = app.associatedFiles.filter(\.isSelected)
+        if app.bundleIsSelected {
+            files.append(CleanableItem(
+                path: app.bundlePath,
+                name: "\(app.name).app",
+                size: app.bundleSize,
+                source: .appBundle
+            ))
+        }
+
+        return UninstallPlan(
+            app: app,
+            filesToRemove: files,
+            totalSize: files.reduce(0) { $0 + $1.size },
+            isRunning: isRunning,
+            isProtected: app.isProtected
+        )
     }
 
     func quitAndUninstall() {
@@ -233,15 +291,13 @@ class UninstallerViewModel {
                     apps.removeAll { $0.id == plan.app.id }
                     selectedApp = nil
                     uninstallPlan = nil
+                    // Completion stays on screen until the user dismisses it.
                     state = .done(
                         freedBytes: report.freedBytes,
                         itemsCleaned: report.itemsCleaned,
                         itemsFailed: report.itemsFailed,
                         itemsBlocked: report.itemsBlocked
                     )
-
-                    try? await Task.sleep(for: .seconds(3))
-                    state = .ready
                 }
             }
         }

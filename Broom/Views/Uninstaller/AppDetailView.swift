@@ -4,6 +4,7 @@ struct AppDetailView: View {
     let app: InstalledApp
     let onToggleBundle: () -> Void
     let onToggleAssociatedFile: (UUID) -> Void
+    let onSetGroupSelection: (String, Bool) -> Void
     let onUninstall: () -> Void
 
     private var groupedFiles: [(key: String, items: [CleanableItem])] {
@@ -33,7 +34,7 @@ struct AppDetailView: View {
                 }
 
                 if let lastUsed = app.lastUsedDate {
-                    Text("Last used: \(lastUsed, style: .relative) ago")
+                    Text("Last used \(lastUsed, style: .relative)")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
@@ -94,10 +95,8 @@ struct AppDetailView: View {
                                     title: group.key,
                                     items: group.items,
                                     onToggleItem: onToggleAssociatedFile,
-                                    onToggleAll: {
-                                        for item in group.items {
-                                            onToggleAssociatedFile(item.id)
-                                        }
+                                    onSetGroupSelection: { selected in
+                                        onSetGroupSelection(group.key, selected)
                                     }
                                 )
                             }
@@ -139,7 +138,7 @@ private struct ArtifactGroupView: View {
     let title: String
     let items: [CleanableItem]
     let onToggleItem: (UUID) -> Void
-    let onToggleAll: () -> Void
+    let onSetGroupSelection: (Bool) -> Void
 
     private var allSelected: Bool { items.allSatisfy(\.isSelected) }
     private var groupSize: Int64 { items.reduce(0) { $0 + $1.size } }
@@ -149,7 +148,7 @@ private struct ArtifactGroupView: View {
         HStack(spacing: 6) {
             Toggle(isOn: Binding(
                 get: { allSelected },
-                set: { _ in onToggleAll() }
+                set: { newValue in onSetGroupSelection(newValue) }
             )) {
                 EmptyView()
             }

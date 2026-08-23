@@ -212,22 +212,21 @@ final class MockAppInventory: AppInventoryServing {
 }
 
 final class MockAppUninstaller: AppUninstalling {
-    var preparedPlan: UninstallPlan
+    var discoveredArtifacts: [CleanableItem] = []
     var lastExecutedPlan: UninstallPlan?
     var lastMoveToTrash = true
     var report: CleanReport
 
     init(
-        preparedPlan: UninstallPlan? = nil,
+        discoveredArtifacts: [CleanableItem] = [],
         report: CleanReport = CleanReport(freedBytes: 0, itemsCleaned: 0, itemsFailed: 0, errors: [], duration: 0)
     ) {
-        let dummyApp = InstalledApp(name: "Dummy", bundleIdentifier: "com.dummy", bundlePath: URL(fileURLWithPath: "/tmp/Dummy.app"))
-        self.preparedPlan = preparedPlan ?? UninstallPlan(app: dummyApp, filesToRemove: [], totalSize: 0, isRunning: false, isProtected: false)
+        self.discoveredArtifacts = discoveredArtifacts
         self.report = report
     }
 
-    func prepareUninstall(app: InstalledApp) async -> UninstallPlan {
-        preparedPlan
+    func discoverArtifacts(for app: InstalledApp) async -> [CleanableItem] {
+        discoveredArtifacts
     }
 
     func executeUninstall(plan: UninstallPlan, moveToTrash: Bool) -> AsyncStream<CleanProgress> {

@@ -47,22 +47,11 @@ struct UninstallerViewModelTests {
             ],
             associatedFilesLoaded: true
         )
-        let plan = UninstallPlan(
-            app: droppedApp,
-            filesToRemove: [
-                CleanableItem(path: appURL, name: "Dropped.app", size: 200),
-                CleanableItem(path: URL(fileURLWithPath: "/tmp/support"), size: 100),
-            ],
-            totalSize: 300,
-            isRunning: false,
-            isProtected: false
-        )
 
         let inventory = MockAppInventory(droppedApps: [appURL: droppedApp])
-        let uninstaller = MockAppUninstaller(preparedPlan: plan)
         let viewModel = UninstallerViewModel(
             appInventory: inventory,
-            appUninstaller: uninstaller,
+            appUninstaller: MockAppUninstaller(),
             preferencesProvider: {
                 let defaults = UserDefaults(suiteName: UUID().uuidString)!
                 return AppPreferences(userDefaults: defaults)
@@ -74,6 +63,7 @@ struct UninstallerViewModelTests {
         await TestSupport.awaitCondition { viewModel.showUninstallConfirmation }
 
         #expect(viewModel.selectedApp?.name == "Dropped")
+        // Plan = selected bundle + selected support files, exactly as shown.
         #expect(viewModel.uninstallPlan?.totalSize == 300)
     }
 
@@ -117,16 +107,9 @@ struct UninstallerViewModelTests {
             associatedFilesLoaded: true
         )
         let inventory = MockAppInventory(apps: [app])
-        let plan = UninstallPlan(
-            app: app,
-            filesToRemove: [file],
-            totalSize: 100,
-            isRunning: false,
-            isProtected: false
-        )
         let viewModel = UninstallerViewModel(
             appInventory: inventory,
-            appUninstaller: MockAppUninstaller(preparedPlan: plan)
+            appUninstaller: MockAppUninstaller()
         )
 
         viewModel.selectedApp = app
@@ -148,19 +131,9 @@ struct UninstallerViewModelTests {
             bundleIdentifier: "com.example.running",
             bundlePath: URL(fileURLWithPath: "/tmp/Running.app")
         )
-        let plan = UninstallPlan(
-            app: app,
-            filesToRemove: [
-                CleanableItem(path: app.bundlePath, name: "Running.app", size: 10),
-            ],
-            totalSize: 10,
-            isRunning: true,
-            isProtected: false
-        )
-
         let viewModel = UninstallerViewModel(
             appInventory: MockAppInventory(apps: [app]),
-            appUninstaller: MockAppUninstaller(preparedPlan: plan),
+            appUninstaller: MockAppUninstaller(),
             runningAppController: RunningAppController(
                 isRunning: { _ in true },
                 terminate: { _ in false },
@@ -168,7 +141,7 @@ struct UninstallerViewModelTests {
             )
         )
 
-        viewModel.uninstallPlan = plan
+        viewModel.uninstallPlan = UninstallPlan(app: app, filesToRemove: [CleanableItem(path: app.bundlePath, name: "Running.app", size: 10)], totalSize: 10, isRunning: true, isProtected: false)
         viewModel.showRunningAppAlert = true
         viewModel.quitAndUninstall()
 
@@ -183,19 +156,9 @@ struct UninstallerViewModelTests {
             bundleIdentifier: "com.example.running",
             bundlePath: URL(fileURLWithPath: "/tmp/Running.app")
         )
-        let plan = UninstallPlan(
-            app: app,
-            filesToRemove: [
-                CleanableItem(path: app.bundlePath, name: "Running.app", size: 10),
-            ],
-            totalSize: 10,
-            isRunning: true,
-            isProtected: false
-        )
-
         let viewModel = UninstallerViewModel(
             appInventory: MockAppInventory(apps: [app]),
-            appUninstaller: MockAppUninstaller(preparedPlan: plan),
+            appUninstaller: MockAppUninstaller(),
             runningAppController: RunningAppController(
                 isRunning: { _ in false },
                 terminate: { _ in true },
@@ -203,12 +166,53 @@ struct UninstallerViewModelTests {
             )
         )
 
-        viewModel.uninstallPlan = plan
+        viewModel.uninstallPlan = UninstallPlan(app: app, filesToRemove: [CleanableItem(path: app.bundlePath, name: "Running.app", size: 10)], totalSize: 10, isRunning: true, isProtected: false)
         viewModel.showForceQuitAlert = true
         viewModel.forceQuitAndUninstall()
         await TestSupport.awaitCondition { viewModel.showUninstallConfirmation }
 
         #expect(viewModel.showForceQuitAlert == false)
         #expect(viewModel.showUninstallConfirmation == true)
+    }
+
+    @MainActor
+    @Test func prepareUninstallMergesDiscoveredArtifactsIntoEditablePlan() async {
+        let app = InstalledApp(
+            name: "Sample",
+            bundleIdentifier: "com.example.sample",
+            bundlePath: URL(fileURLWithPath: "/tmp/Sample.app"),
+            bundleSize: 200,
+            associatedFilesLoaded: true
+        )
+        let discovered = CleanableItem(
+            path: URL(fileURLWithPath: "/tmp/Library/Caches/com.example.sample"),
+            size: 50,
+            source: .caches
+        )
+        let inventory = MockAppInventory(apps: [app])
+        let uninstaller = MockAppUninstaller(discoveredArtifacts: [discovered])
+        let viewModel = UninstallerViewModel(
+            appInventory: inventory,
+            appUninstaller: uninstaller,
+            runningAppController: RunningAppController(
+                isRunning: { _ in false },
+                terminate: { _ in false },
+                forceTerminate: { _ in false }
+            )
+        )
+        viewModel.selectedApp = app
+
+        viewModel.prepareUninstall()
+        await TestSupport.awaitCondition { viewModel.showUninstallConfirmation }
+
+        // Discovered artifacts are surfaced in the editable detail list…
+        let updated = viewModel.selectedApp
+        #expect(updated?.associatedFiles.contains(where: { $0.id == discovered.id }) == true)
+
+        // …and the plan matches exactly the visible selection.
+        let plan = viewModel.uninstallPlan
+        #expect(plan?.filesToRemove.count == 2)
+        #expect(plan?.totalSize == 250)
+        #expect(plan?.isRunning == false)
     }
 }
