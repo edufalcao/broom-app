@@ -5,6 +5,7 @@ struct MainWindow: View {
     @State private var scanViewModel = ScanViewModel()
     @State private var uninstallerViewModel = UninstallerViewModel()
     @State private var largeFilesViewModel = LargeFilesViewModel()
+    @State private var installersViewModel = InstallersViewModel()
 
     private var sidebarBackground: Color {
         Color(nsColor: .underPageBackgroundColor)
@@ -18,7 +19,7 @@ struct MainWindow: View {
         switch section {
         case .cleaner: return scanViewModel.state.isBusy
         case .uninstaller: return uninstallerViewModel.state == .loading
-        case .largeFiles: return largeFilesViewModel.state.isBusy
+        case .largeFiles: return largeFilesViewModel.state.isBusy || installersViewModel.state.isBusy
         }
     }
 
@@ -57,7 +58,10 @@ struct MainWindow: View {
             case .uninstaller:
                 UninstallerView(viewModel: uninstallerViewModel)
             case .largeFiles:
-                LargeFilesView(viewModel: largeFilesViewModel)
+                LargeFilesSectionView(
+                    largeFilesViewModel: largeFilesViewModel,
+                    installersViewModel: installersViewModel
+                )
             }
         }
         .onChange(of: router.pendingAction) { _, action in

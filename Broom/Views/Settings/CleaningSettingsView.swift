@@ -7,9 +7,11 @@ struct CleaningSettingsView: View {
     @AppStorage("scanDSStores") private var scanDSStores = AppPreferences.defaultScanDSStores
     @AppStorage("minTempFileAgeHours") private var minTempFileAgeHours = AppPreferences.defaultTempFileAgeHours
     @AppStorage("orphanStaleAgeDays") private var orphanStaleAgeDays = AppPreferences.defaultOrphanStaleAgeDays
+    @AppStorage("installerMinAgeDays") private var installerMinAgeDays = AppPreferences.defaultInstallerMinAgeDays
 
     private let ageOptions = [1, 6, 12, 24, 48, 168]
     private let orphanAgeOptions = [7, 14, 30, 60, 90]
+    private let installerAgeOptions = [1, 3, 7, 14, 30]
 
     var body: some View {
         Form {
@@ -32,6 +34,15 @@ struct CleaningSettingsView: View {
                 }
             }
             Text("Only show leftovers older than this")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Picker("Minimum installer age:", selection: $installerMinAgeDays) {
+                ForEach(installerAgeOptions, id: \.self) { days in
+                    Text("\(days) \(days == 1 ? "day" : "days")").tag(days)
+                }
+            }
+            Text("Only offer installer files older than this")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
