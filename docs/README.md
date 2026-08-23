@@ -26,7 +26,7 @@ Project documentation is grouped by domain and by release-document lifecycle.
 
 ### Releases
 - [Release Notes](./releases/notes/)
-  Published release notes for shipped versions only. The current baseline release note is `1.0.0`.
+  Published release notes for shipped versions only (currently `1.0.0` through `1.5.0`).
 - [Release Plans](./releases/plans/)
   Reserved for future release planning documents when the next version is scoped.
 

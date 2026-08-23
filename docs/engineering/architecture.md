@@ -1,7 +1,7 @@
 # Broom — Technical Architecture
 
-> **Version:** 1.1.0
-> **Date:** 2026-03-16
+> **Version:** 1.5.0
+> **Date:** 2026-08-22
 
 ---
 
@@ -20,15 +20,17 @@
 │                                                              │
 │  MainWindow ──── CleanerView ──── ScanResultsView            │
 │  UninstallerView ──── AppDetailView ──── SettingsView        │
-│  LargeFilesView ──── UninstallConfirmView                    │
+│  LargeFilesView ──── InstallersView ────                     │
+│  ProjectArtifactsView ──── UninstallConfirmView              │
 │                                                              │
-│  One desktop-style window with three sidebar sections plus   │
+│  One desktop-style window with four sidebar sections plus    │
 │  a separate Settings scene.                                  │
 ├──────────────────────────────────────────────────────────────┤
 │                      ViewModel Layer                         │
 │                                                              │
 │  ScanViewModel ──── UninstallerViewModel ────                │
-│  LargeFilesViewModel                                         │
+│  LargeFilesViewModel ──── ProjectArtifactsViewModel ────     │
+│  InstallersViewModel                                         │
 │                                                              │
 │  @MainActor @Observable classes. State machines driving UI.  │
 │  Heavy I/O stays in services; UI state and orchestration     │
@@ -38,17 +40,20 @@
 │                                                              │
 │  ScanServing ──── CleanServing ──── AppInventoryServing      │
 │  OrphanDetecting ──── AppUninstalling ────                   │
-│  LargeFileScanning                                           │
+│  LargeFileScanning ──── ProjectArtifactScanning ────         │
+│  InstallerScanning                                           │
 │                                                              │
 │  Protocols enable dependency injection and test isolation.   │
 ├──────────────────────────────────────────────────────────────┤
 │                 Service Implementation Layer                 │
 │                                                              │
-│  FileScanner ──── FileCleaner ──── AppInventory              │
+│  FileScanner ──── FileCleaner ──── AppInventory               │
 │  OrphanDetector ──── AppUninstaller ──── LargeFileScanner    │
-│  UninstallArtifactPlanner ──── LaunchServicesManager         │
-│  LoginItemManager ──── PermissionChecker ────                │
-│  RunningAppDetector ──── NotificationManager                 │
+│  ProjectArtifactScanner ──── InstallerScanner ────           │
+│  RecencyClassifier ──── UninstallArtifactPlanner ────        │
+│  LaunchServicesManager ──── LoginItemManager ────            │
+│  PermissionChecker ──── RunningAppDetector ────              │
+│  NotificationManager                                         │
 │                                                              │
 │  Actors isolate file-system work and Spotlight-backed scans. │
 │  Preferences are injected as value snapshots.                │
@@ -58,6 +63,7 @@
 │  Constants ──── SizeFormatter ──── Logger ──── SafeDelete    │
 │  ExclusionList ──── BundleIDMatcher ──── AppPreferences      │
 │  DeletePolicy ──── ProtectedDataPolicy ──── ReleaseNotes     │
+│  ZipInspector                                                │
 │                                                              │
 │  Stateless helpers and small value types shared everywhere.  │
 └──────────────────────────────────────────────────────────────┘
@@ -89,18 +95,22 @@ Broom/
 │   ├── OrphanedApp.swift                   # Orphan grouping + confidence
 │   ├── InstalledApp.swift                  # Installed app, InstalledAppSnapshot
 │   ├── UninstallArtifactSource.swift       # Source tag for uninstall artifacts
+│   ├── ProjectArtifact.swift               # Regenerable project artifact + ArtifactRecency, ProjectGroup
 │   ├── LargeFile.swift                     # Large-file finder result
 │   └── CleanReport.swift                   # Post-clean/uninstall summary
 │
 ├── ViewModels/
 │   ├── ScanViewModel.swift                 # Cleaner scan, selection, clean flow, Dock badge
 │   ├── UninstallerViewModel.swift          # App list, uninstall preview, quit/force-quit flow
-│   └── LargeFilesViewModel.swift           # Large-file scan, sort, reveal, clean flow
+│   ├── LargeFilesViewModel.swift           # Large-file scan, sort, reveal, clean flow
+│   ├── InstallersViewModel.swift           # Installer leftovers scan and clean flow
+│   └── ProjectArtifactsViewModel.swift     # Per-project artifact scan, selection, clean flow
 │
 ├── Views/
 │   ├── MainWindow.swift                    # Main NavigationSplitView and routing
 │   ├── Cleaner/                            # Cleaner states and drill-down views
-│   ├── LargeFiles/                         # Large-file finder list and rows
+│   ├── LargeFiles/                         # Large-file finder list, rows, Installers mode
+│   ├── ProjectArtifacts/                   # Per-project artifact results
 │   ├── Uninstaller/                        # App list/detail/uninstall confirmation
 │   ├── Settings/                           # Native macOS Settings tabs
 │   └── Components/                         # Shared rows, badges, banners, empty states
@@ -116,6 +126,9 @@ Broom/
 │   ├── LaunchServicesManager.swift         # Unregister apps and refresh LS database
 │   ├── LoginItemManager.swift              # Unload launch agents/daemons
 │   ├── LargeFileScanner.swift              # Recursive home-directory large-file scan
+│   ├── InstallerScanner.swift              # Leftover installer files + app-bearing ZIP archives
+│   ├── ProjectArtifactScanner.swift        # Project discovery + regenerable artifact scanning
+│   ├── RecencyClassifier.swift             # Recent/old/uncertain classification by mtime
 │   ├── PermissionChecker.swift             # Full Disk Access checks and prompts
 │   ├── RunningAppDetector.swift            # Running-app matching and termination helpers
 │   └── NotificationManager.swift           # Notification permission and delivery
@@ -130,6 +143,7 @@ Broom/
     ├── ProtectedDataPolicy.swift           # Protected data family definitions
     ├── Logger.swift                        # os.Logger categories
     ├── AppPreferences.swift                # Sendable preference snapshot + defaults
+    ├── ZipInspector.swift                  # In-process ZIP central-directory inspection
     └── ReleaseNotes.swift                  # In-app release note content
 ```
 
@@ -141,11 +155,13 @@ BroomTests/
 ├── AppRouterTests.swift
 ├── AppUninstallerTests.swift
 ├── BundleIDMatcherTests.swift
+├── CleanerEnrichmentTests.swift
 ├── DeletePolicyTests.swift
 ├── DockerHomebrewScanTests.swift
 ├── ExclusionListTests.swift
 ├── FileCleanerTests.swift
 ├── FileScannerTests.swift
+├── InstallerScannerTests.swift
 ├── LargeFileScannerTests.swift
 ├── LargeFilesViewModelTests.swift
 ├── MetadataCleanupTests.swift
@@ -153,12 +169,17 @@ BroomTests/
 ├── NotificationManagerTests.swift
 ├── OrphanCategoryTests.swift
 ├── OrphanDetectorTests.swift
+├── ProjectArtifactTests.swift
 ├── ProtectedDataPolicyTests.swift
 ├── RunningAppDetectorTests.swift
 ├── ScanViewModelTests.swift
 ├── SizeFormatterTests.swift
 ├── UninstallArtifactPlannerTests.swift
-└── UninstallerViewModelTests.swift
+├── UninstallerViewModelTests.swift
+└── ZipInspectorTests.swift
+
+BroomUITests/
+└── BroomUITests.swift                      # Main-window smoke tests
 ```
 
 Run the full suite with `xcodebuild -scheme Broom test`.
@@ -291,6 +312,7 @@ struct CleanReport {
     let freedBytes: Int64
     let itemsCleaned: Int
     let itemsFailed: Int
+    let itemsBlocked: Int           // Blocked by safety rules (DeletePolicy)
     let errors: [CleanError]
     let duration: TimeInterval
 
@@ -298,6 +320,52 @@ struct CleanReport {
         let path: URL
         let reason: String
     }
+}
+```
+
+### 3.7 ProjectArtifact
+
+A regenerable build artifact found inside a project directory. Shared cache stores never appear here; those belong to the Cleaner.
+
+```swift
+enum ArtifactRecency: String {
+    case recent     // Shown as "Active"
+    case old        // Shown as "Old"
+    case uncertain  // Treated as protected; shown as "Unknown age"
+}
+
+struct ProjectArtifact: Identifiable, Hashable {
+    let id: UUID
+    let path: URL
+    let name: String
+    let size: Int64
+    let recency: ArtifactRecency
+    var isSelected: Bool            // Starts true only for .old (suppression-first)
+
+    var formattedSize: String { SizeFormatter.format(size) }
+}
+
+struct ProjectGroup: Identifiable {
+    let path: URL                   // Owning project directory
+    var artifacts: [ProjectArtifact]
+
+    var name: String { path.lastPathComponent }
+    var totalSize: Int64 { artifacts.reduce(0) { $0 + $1.size } }
+}
+```
+
+### 3.8 LargeFile
+
+A large file found by the Large File Scanner, also reused for installer leftovers.
+
+```swift
+struct LargeFile: Identifiable, Hashable {
+    let id: UUID
+    let path: URL
+    let name: String
+    let size: Int64
+    let modifiedDate: Date
+    var isSelected: Bool
 }
 ```
 
@@ -652,6 +720,66 @@ Provides two matching strategies for different safety contexts:
 - **`strictMatch`** (used by OrphanDetector): exact match or reverse-DNS prefix relationship only. Minimizes false negatives to avoid suppressing true orphans, but also avoids false positives from loose name matching.
 - **`broadMatch`** (used by UninstallArtifactPlanner): adds stripped-punctuation matching and short-name substring matching. Acceptable here because the user explicitly chose the app to uninstall.
 
+### 4.11 ProjectArtifactScanner
+
+Discovers project directories under user-configured search roots and collects their regenerable build artifacts. Shared cache stores never appear here; those belong to the Cleaner.
+
+```
+ProjectArtifactScanner (actor)
+├── scan() -> AsyncStream<ProjectArtifactScanProgress>
+│   ├── For each search root that exists on disk:
+│   │   ├── discoverProjects(below root) — directories containing a project
+│   │   │   indicator (.git, package.json, Cargo.toml, go.mod, …), up to
+│   │   │   depth 4; heavy artifact directories are not descended into
+│   │   └── collectArtifacts(project:) — family-named directories at or below
+│   │       the project root up to depth 2 (covers monorepo layouts), plus
+│   │       CACHEDIR.TAG-marked children of the project itself
+│   ├── Sizes computed with nested artifacts pruned (no double-counting)
+│   ├── Each artifact classified via RecencyClassifier
+│   └── Finishes with .complete([ProjectGroup]) sorted by size descending
+│
+└── liveRoots() -> [URL]
+    └── User-configured roots win; fixed defaults apply when none are set
+```
+
+**Suppression-first behavior:** only confidently-old artifacts start selected; recent and uncertain ones are deselected and re-checked at delete time (`RecencyClassifier.isActive`).
+
+### 4.12 InstallerScanner
+
+Finds leftover installer files for the Large Files section's Installers mode.
+
+```
+InstallerScanner (actor)
+├── scan() -> AsyncStream<InstallerScanProgress>
+│   ├── Sources: ~/Downloads, ~/Desktop, ~/Documents, Homebrew download cache
+│   ├── Matches .dmg/.pkg/.mpkg/.iso/.xip extensions, max depth 2
+│   ├── App-bearing ZIP archives identified via ZipInspector central-directory peek
+│   ├── Uniform age gate: files younger than installerMinAgeDays suppressed
+│   └── Mounted disk images never offered regardless of age
+│
+└── mountedDiskImagePaths() -> Set<String>
+    └── Reads mounted volumes so active .dmg mounts are excluded
+```
+
+**ZipInspector** (Utilities) reads the ZIP end-of-central-directory record in-process and inspects entry names — no third-party dependency, no full extraction — to decide whether an archive contains an .app bundle.
+
+### 4.13 RecencyClassifier
+
+Labels an artifact directory as recent, old, or uncertain against a modification-time cutoff. Uncertainty is treated as protected, matching Broom's suppression-first orphan philosophy.
+
+```
+RecencyClassifier (struct)
+├── classify(at: URL) -> ArtifactRecency
+│   ├── Top-level mtime after cutoff → .recent
+│   ├── Bounded recursive probe of descendants (default 20,000 entries)
+│   ├── Unreadable or missing mtimes → .uncertain
+│   ├── Probe budget exhausted before proving quiet → .uncertain
+│   └── All probed dates before cutoff → .old
+│
+└── isActive(at: URL) -> Bool
+    └── Delete-time re-check: anything not provably .old is active
+```
+
 ---
 
 ## 5. ViewModel Layer
@@ -736,6 +864,40 @@ class UninstallerViewModel {
 }
 ```
 
+### 5.3 ProjectArtifactsViewModel
+
+Drives the Project Artifacts section.
+
+```swift
+@Observable
+class ProjectArtifactsViewModel {
+    enum State: Equatable {
+        case idle
+        case scanning(currentPath: String, artifactsFound: Int)
+        case results
+        case cleaning(cleaned: Int, total: Int)
+        case done(freedBytes: Int64, itemsCleaned: Int)
+    }
+
+    var state: State = .idle
+    var groups: [ProjectGroup] = []
+    var selectedSize: Int64 { /* sum of selected artifacts */ }
+
+    // MARK: - Actions
+    func startScan()
+    func cancelScan()
+    func toggleArtifact(_ id: UUID)
+    func setGroup(_ group: ProjectGroup, selected: Bool)  // Explicit target state
+    func startClean() / confirmClean()                     // Re-checks recency at delete time
+    func reset()
+    func revealInFinder(_ artifact: ProjectArtifact)
+}
+```
+
+### 5.4 InstallersViewModel
+
+Drives the Installers mode of the Large Files section. Same state-machine shape as `LargeFilesViewModel`, scanning via `InstallerScanner` instead of `LargeFileScanner`.
+
 ---
 
 ## 6. View Layer
@@ -755,7 +917,7 @@ struct BroomApp: App {
         .defaultSize(width: 750, height: 520)
         .windowResizability(.contentMinSize)
         .commands {
-            // Cmd+Shift+S scan shortcut and Cmd+1/2/3 sidebar routing
+            // Cmd+Shift+S scan shortcut and Cmd+1/2/3/4 sidebar routing
         }
 
         Settings {
@@ -768,7 +930,7 @@ struct BroomApp: App {
 **Key points:**
 - `Window` for a single standard desktop app window
 - Single main window with `NavigationSplitView` for sidebar navigation
-- Cleaner, Uninstaller, and Large Files are sidebar sections within the same window
+- Cleaner, Uninstaller, Artifacts, and Large Files are sidebar sections within the same window
 - `AppRouter` carries keyboard shortcuts and Dock drop actions into the active window
 - `Settings` scene for the preferences window (accessible via Cmd+, and toolbar affordances)
 - Standard Dock icon — no `LSUIElement` flag
@@ -779,7 +941,8 @@ struct BroomApp: App {
 MainWindow (NavigationSplitView)
 ├── Sidebar content
 │   ├── "Clean" navigation item (SF Symbol: magnifyingglass)
-│   ├── "Apps" navigation item (SF Symbol: shippingbox)
+│   ├── "Uninstall" navigation item (SF Symbol: shippingbox)
+│   ├── "Artifacts" navigation item (SF Symbol: archivebox)
 │   └── "Large Files" navigation item (SF Symbol: doc.badge.arrow.up)
 │
 ├── CleanerView (detail when "Clean" selected)
@@ -838,15 +1001,25 @@ MainWindow (NavigationSplitView)
 │   ├── UninstallConfirmView (sheet)
 │   └── Running-app alerts for quit / force-quit confirmation
 │
+├── ProjectArtifactsView (detail when "Artifacts" selected)
+│   ├── Idle state with scan button
+│   ├── Scanning state with current path and artifact count
+│   ├── Results grouped by project (ProjectGroup rows with per-artifact toggles,
+│   │   recency labels, group header set-selected action)
+│   ├── Clean confirmation
+│   └── Done state with freed summary
+│
 ├── LargeFilesView (detail when "Large Files" selected)
 │   ├── Idle state with minimum-size picker
 │   ├── Scanning state with current path
 │   ├── Results list of LargeFileRowView
+│   ├── Installers mode (segment): leftover installers and app-bearing ZIPs
 │   └── Done state after moving files to Trash
 │
 Settings scene / SettingsView
 ├── GeneralSettingsView
 ├── CleaningSettingsView
+├── ProjectsSettingsView
 ├── SafeListSettingsView
 └── AboutSettingsView
 ```
@@ -869,7 +1042,9 @@ Background (actor-isolated)
 ├── AppInventory.loadAllApps()     → runs on AppInventory actor
 ├── AppInventory.buildSnapshot()   → runs on AppInventory actor
 ├── OrphanDetector.detectOrphans() → runs on OrphanDetector actor
-└── AppUninstaller.execute()       → runs on AppUninstaller actor
+├── AppUninstaller.execute()       → runs on AppUninstaller actor
+├── ProjectArtifactScanner.scan()  → runs on ProjectArtifactScanner actor
+└── InstallerScanner.scan()        → runs on InstallerScanner actor
 
 Synchronous (called from actor context)
 ├── UninstallArtifactPlanner.planArtifacts()  → struct, called within AppUninstaller
@@ -1030,6 +1205,10 @@ enum BroomError: LocalizedError {
 | **DeletePolicy** | Test system path blocking, symlink safety, context-dependent behavior |
 | **ProtectedDataPolicy** | Test bundle ID and path component matching for all 6 families |
 | **MetadataCleanup** | Test LaunchServicesManager and LoginItemManager integration |
+| **InstallerScanner** | Temp fixtures for installer extensions, age gate, mounted-image exclusion, ZIP detection |
+| **ProjectArtifactScanner** | Temp project trees: indicator discovery, artifact families, CACHEDIR.TAG, nested pruning |
+| **RecencyClassifier** | Recent/old/uncertain classification and probe budget exhaustion |
+| **ZipInspector** | Crafted ZIP fixtures for end-of-central-directory parsing and .app entry detection |
 
 ### 10.2 Integration Tests
 
@@ -1043,6 +1222,7 @@ enum BroomError: LocalizedError {
 
 ### 10.3 UI Tests
 
+- `BroomUITests` target runs main-window smoke tests (sidebar navigation, scan buttons) via accessibility identifiers
 - SwiftUI Previews for each view in each state
 - Manual testing of all state transitions
 - Verify window layout at minimum size — no content clipping

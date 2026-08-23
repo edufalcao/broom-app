@@ -26,11 +26,18 @@ A free, open-source macOS utility that helps you reclaim disk space and maintain
 - Drag-and-drop a .app onto the window to uninstall it
 - Running app detection with quit-before-uninstall flow and force-quit fallback
 
+**Project Artifacts** - Clean regenerable build outputs inside your projects:
+- Per-project artifacts (node_modules, target, .build, Pods, and more), never shared cache stores
+- Project discovery via indicator files (.git, package.json, Cargo.toml, go.mod, …) plus CACHEDIR.TAG-marked directories
+- Recency classification: only confidently-old artifacts are selected by default; anything active or of unknown age is left alone and re-checked at delete time
+- Configurable project search roots
+
 **Large File Finder** - Find oversized files quickly:
 - Scan your home directory for files above 100 MB, 250 MB, 500 MB, or 1 GB
 - Sort by size, name, or modified date
 - Reveal any result in Finder
 - Selectively move large files to Trash
+- Installers mode: leftover .dmg/.pkg/.mpkg/.iso/.xip files and app-bearing ZIP archives (mounted disk images are never offered)
 
 **Settings:**
 - Launch at login
@@ -38,6 +45,8 @@ A free, open-source macOS utility that helps you reclaim disk space and maintain
 - Skip caches for running apps
 - Configurable temp file age threshold
 - Toggle developer caches and .DS_Store scanning
+- Installer minimum-age threshold
+- Project search roots
 - Custom safe list (paths/bundle IDs that are never flagged)
 
 ## Safety
@@ -106,6 +115,7 @@ xcodebuild -scheme Broom -configuration Debug test
 | Cmd+1 | Switch to System Cleaner |
 | Cmd+2 | Switch to App Uninstaller |
 | Cmd+3 | Switch to Large Files |
+| Cmd+4 | Switch to Project Artifacts |
 | Cmd+, | Open Settings |
 | Cmd+Q | Quit |
 
